@@ -1545,7 +1545,9 @@ function doGet(e) {
 
 function doPost(e) {
   try {
-    const data = JSON.parse(e.postData.contents);
+    // Compatible text/plain ET application/json
+    const raw  = e.postData ? e.postData.contents : "{}";
+    const data = JSON.parse(raw);
     if (data.action !== "sync") return respond({ error: "Unknown action" });
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     writeSheet(ss, SHEET_CLIENTS,   data.clients   || [],
@@ -1570,7 +1572,6 @@ function parseRows(sheet) {
   return vals.slice(1).filter(r => r[0] !== "" && r[0] !== null).map(r => {
     const obj = {};
     hdrs.forEach((h, i) => { obj[h] = r[i]; });
-    // Coerce numeric fields
     ["id","clientId","amount","historicalPoints",
      "ptsAmount","ptsFreq","totalPoints"].forEach(k => {
       if (obj[k] !== undefined) obj[k] = Number(obj[k]) || 0;
@@ -1583,10 +1584,7 @@ function parseRows(sheet) {
 function writeSheet(ss, name, rows, headers) {
   const sheet = getOrCreate(ss, name);
   sheet.clearContents();
-  if (rows.length === 0) {
-    sheet.appendRow(headers);
-    return;
-  }
+  if (rows.length === 0) { sheet.appendRow(headers); return; }
   const data = [headers, ...rows.map(r => headers.map(h => r[h] ?? ""))];
   sheet.getRange(1, 1, data.length, headers.length).setValues(data);
 }
@@ -1646,7 +1644,7 @@ async function testGSConnection() {
     <i data-lucide="loader"></i> Test en cours…</div>`;
   lucide.createIcons({ nodes: [resultDiv] });
   try {
-    const res = await fetch(url, { mode: 'cors' });
+    const res = await fetch(url, { mode: 'cors', redirect: 'follow' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (data.error) throw new Error(data.error);
@@ -1673,23 +1671,25 @@ async function syncToSheets(silent = false) {
   }
   setSyncBadgeLoading(true);
   try {
+    // ⚠️ GAS bloque application/json (déclenche un preflight CORS rejeté)
+    // Solution : envoyer en text/plain — GAS reçoit quand même le JSON dans e.postData.contents
     const res = await fetch(url, {
       method: 'POST',
       mode: 'cors',
-      headers: { 'Content-Type': 'application/json' },
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ action: 'sync', clients, purchases })
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error);
     const now = new Date().toISOString();
     localStorage.setItem('massin_gs_synced_at', now);
-    if (!silent) showToast(`✅ Synchronisé avec Google Sheets — ${clients.length} clients, ${purchases.length} achats.`, 'success');
+    if (!silent) showToast(`✅ Synchronisé — ${clients.length} clients, ${purchases.length} achats.`, 'success');
     initSettingsView();
     updateSyncBadge();
   } catch(e) {
     if (!silent) showToast('Erreur de synchronisation : ' + e.message, 'error');
     else {
-      // En mode silencieux, on affiche juste le badge en erreur
       const badge = document.getElementById('sync-badge');
       if (badge) { badge.className = 'sync-badge err'; badge.querySelector('i').setAttribute('data-lucide','cloud-off'); lucide.createIcons({nodes:[badge]}); }
     }
@@ -1703,7 +1703,7 @@ async function loadFromSheets() {
   if (!url) { showToast('URL Apps Script non configurée. Allez dans Paramètres.', 'error'); return; }
   setSyncBadgeLoading(true);
   try {
-    const res = await fetch(url, { mode: 'cors' });
+    const res = await fetch(url, { mode: 'cors', redirect: 'follow' });
     const data = await res.json();
     if (data.error) throw new Error(data.error);
     if (!data.clients) throw new Error('Données invalides reçues du Sheet');
