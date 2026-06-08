@@ -1427,7 +1427,17 @@ function saveLocal() {
     localStorage.setItem('massin_purchases', JSON.stringify(purchases));
     localStorage.setItem('massin_saved_at',  new Date().toISOString());
     updateSyncBadge();
+    autoSync(); // ← synchro automatique vers Sheets si URL configurée
   } catch(e) { console.warn('localStorage write failed', e); }
+}
+
+// Auto-sync différé : attend 2s après la dernière modif avant d'envoyer
+let _autoSyncTimer = null;
+function autoSync() {
+  const url = localStorage.getItem('massin_gs_url');
+  if (!url) return; // pas d'URL configurée → rien à faire
+  clearTimeout(_autoSyncTimer);
+  _autoSyncTimer = setTimeout(() => syncToSheets(true), 2000);
 }
 
 function loadLocal() {
@@ -1627,9 +1637,12 @@ async function testGSConnection() {
   }
 }
 
-async function syncToSheets() {
+async function syncToSheets(silent = false) {
   const url = GS_URL || localStorage.getItem('massin_gs_url') || '';
-  if (!url) { showToast('URL Apps Script non configurée. Allez dans Paramètres.', 'error'); return; }
+  if (!url) {
+    if (!silent) showToast('URL Apps Script non configurée. Allez dans Paramètres.', 'error');
+    return;
+  }
   setSyncBadgeLoading(true);
   try {
     const res = await fetch(url, {
@@ -1642,11 +1655,16 @@ async function syncToSheets() {
     if (data.error) throw new Error(data.error);
     const now = new Date().toISOString();
     localStorage.setItem('massin_gs_synced_at', now);
-    showToast(`✅ Synchronisé avec Google Sheets — ${clients.length} clients, ${purchases.length} achats.`, 'success');
+    if (!silent) showToast(`✅ Synchronisé avec Google Sheets — ${clients.length} clients, ${purchases.length} achats.`, 'success');
     initSettingsView();
     updateSyncBadge();
   } catch(e) {
-    showToast('Erreur de synchronisation : ' + e.message, 'error');
+    if (!silent) showToast('Erreur de synchronisation : ' + e.message, 'error');
+    else {
+      // En mode silencieux, on affiche juste le badge en erreur
+      const badge = document.getElementById('sync-badge');
+      if (badge) { badge.className = 'sync-badge err'; badge.querySelector('i').setAttribute('data-lucide','cloud-off'); lucide.createIcons({nodes:[badge]}); }
+    }
   } finally {
     setSyncBadgeLoading(false);
   }
