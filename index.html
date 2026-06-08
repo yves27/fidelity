@@ -468,7 +468,7 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
   <div id="view-dashboard" class="view active">
     <div class="flex-between mb-6" style="flex-wrap:wrap; gap:var(--space-3);">
       <div>
-        <div class="section-title">Tableau de bord — Juin 2025</div>
+        <div class="section-title" id="dash-period-title">Tableau de bord</div>
         <div class="text-muted">Campagne Anniversaire Mass'In · Achetez & Gagnez</div>
       </div>
       <div class="flex-gap">
@@ -599,7 +599,7 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
 
       <!-- Import Mois en cours -->
       <div class="card">
-        <div class="card-title"><i data-lucide="file-spreadsheet"></i> Ventes du mois (Juin)</div>
+        <div class="card-title"><i data-lucide="file-spreadsheet"></i> <span id="import-month-label">Ventes du mois</span></div>
         <div class="alert alert-info mt-2 mb-4">
           <i data-lucide="info"></i>
           <div>Importez les ventes du mois en cours. Le système <strong>détecte automatiquement</strong> si le client existe déjà et cumule ses points.</div>
@@ -628,7 +628,7 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
                 <tr><td><code>email</code></td><td><span class="badge badge-orange">Recommandé</span></td><td>jean@gmail.com</td></tr>
                 <tr><td><code>telephone</code> ou <code>phone</code></td><td><span class="badge badge-orange">Recommandé</span></td><td>034 12 345 67</td></tr>
                 <tr><td><code>montant</code> ou <code>amount</code></td><td><span class="badge badge-red">Oui</span></td><td>250000</td></tr>
-                <tr><td><code>date</code></td><td><span class="badge badge-green">Optionnel</span></td><td>2025-06-12</td></tr>
+                <tr><td><code>date</code></td><td><span class="badge badge-green">Optionnel</span></td><td id="import-date-example">2026-06-12</td></tr>
               </tbody>
             </table>
           </div>
@@ -1114,6 +1114,34 @@ function showToast(msg, type = 'info') {
 
 function fmtNum(n) { return Number(n).toLocaleString('fr-FR'); }
 function fmtDate(d) { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }); }
+
+// Mois courant en français, capitalisé
+function getCurrentMonthLabel() {
+  const now = new Date();
+  const month = now.toLocaleDateString('fr-FR', { month: 'long' });
+  const year  = now.getFullYear();
+  return { month: month.charAt(0).toUpperCase() + month.slice(1), year };
+}
+
+function updateDynamicLabels() {
+  const { month, year } = getCurrentMonthLabel();
+  // Titre tableau de bord
+  const dashTitle = document.getElementById('dash-period-title');
+  if (dashTitle) dashTitle.textContent = `Tableau de bord — ${month} ${year}`;
+  // Badge mois en cours
+  const dashBadge = document.getElementById('dash-month-badge');
+  if (dashBadge) dashBadge.innerHTML = `<i data-lucide="calendar" style="width:12px;height:12px;"></i> ${month} ${year}`;
+  // Titre import mensuel
+  const importLabel = document.getElementById('import-month-label');
+  if (importLabel) importLabel.textContent = `Ventes du mois (${month})`;
+  // Exemple de date dans le guide import
+  const dateEx = document.getElementById('import-date-example');
+  if (dateEx) {
+    const mm = String(new Date().getMonth() + 1).padStart(2, '0');
+    dateEx.textContent = `${year}-${mm}-12`;
+  }
+  lucide.createIcons();
+}
 
 // ===================== DASHBOARD =====================
 function renderDashboard() {
@@ -1907,12 +1935,17 @@ function exportCSV() {
 
 // ===================== INIT =====================
 (function init() {
-  const hasData = loadLocal();
-  if (!hasData) seedData();   // données de démo uniquement si rien en local
+  loadLocal();             // charge localStorage (ou rien si vide — pas de démo)
   GS_URL = localStorage.getItem('massin_gs_url') || '';
   renderDashboard();
+  updateDynamicLabels();
   updateSyncBadge();
   lucide.createIcons();
+
+  // Si l'URL Sheets est déjà configurée → synchro automatique au chargement
+  if (GS_URL) {
+    setTimeout(() => syncToSheets(true), 3000);
+  }
 })();
 </script>
 </body>
