@@ -1350,6 +1350,9 @@ function renderDashboardGlobal() {
     lucide.createIcons();
     return;
   }
+
+  // Tier counts — déclaré ICI, avant utilisation
+  const tierCounts = { Platine: 0, Or: 0, Argent: 0, Bronze: 0 };
   clients.forEach(c => {
     const t = getTier(c.totalPoints).name;
     if (tierCounts[t] !== undefined) tierCounts[t]++;
@@ -2078,12 +2081,18 @@ async function syncToSheets(silent = false) {
   if (!url) { _releaseLock(); showToast('URL Apps Script non configurée.', 'error'); return; }
 
   // Sync intelligente : uniquement les clients ACTIFS (avec achats ou nouveaux)
-  // La base historique pure (39K sans achat) reste en local — pas besoin de la re-syncer
   const activeClients = clients.filter(c =>
     (c.ptsAmount || 0) > 0 || (c.ptsFreq || 0) > 0 || c.type === 'nouveau'
   );
-  // Si aucun actif, envoyer quand même les 500 premiers pour ne pas vider le Drive
   const toSync = activeClients.length > 0 ? activeClients : clients.slice(0, 500);
+
+  // Sécurité : ne jamais écraser Drive avec 0 clients
+  if (toSync.length === 0) {
+    _releaseLock();
+    if (!silent) showToast('Aucune donnée à sauvegarder — importez d\'abord un fichier.', 'error');
+    dbLog('warn', 'syncToSheets annulé — 0 clients à envoyer');
+    return;
+  }
 
   if (!silent) showSyncBanner('Sauvegarde vers Google Drive…',
     `${fmtNum(toSync.length)} clients actifs`);
@@ -2676,28 +2685,25 @@ async function runDiagnostic() {
   dbLog('info', '══ DIAGNOSTIC TERMINÉ ══');
 }
 
-// Wrapper fetch avec timeout + logs automatiques
+// Wrapper fetch avec timeout via Promise.race — plus fiable sur mobile que AbortController
 async function dbFetch(label, url, options = {}, timeoutMs = 40000) {
-  const ctrl = new AbortController();
-  const tid  = setTimeout(() => ctrl.abort(), timeoutMs);
   const method   = options.method || 'GET';
   const bodySize = options.body ? Math.round(options.body.length / 1024) : 0;
   dbLog('info', `→ ${method} ${label}${bodySize ? ` — ${bodySize}KB` : ''} [max ${timeoutMs/1000}s]`);
   const t0 = Date.now();
+
+  const fetchPromise   = fetch(url, options);
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error(`Timeout ${timeoutMs/1000}s — serveur trop lent ou réseau coupé`)), timeoutMs)
+  );
+
   try {
-    const res = await fetch(url, { ...options, signal: ctrl.signal });
-    clearTimeout(tid);
-    const ms = Date.now() - t0;
+    const res = await Promise.race([fetchPromise, timeoutPromise]);
+    const ms  = Date.now() - t0;
     dbLog(res.ok ? 'ok' : 'warn', `← HTTP ${res.status} en ${ms}ms`);
     return res;
   } catch(e) {
-    clearTimeout(tid);
     const ms = Date.now() - t0;
-    if (e.name === 'AbortError') {
-      const msg = `Timeout après ${ms}ms — serveur trop lent ou connexion coupée`;
-      dbLog('err', msg);
-      throw new Error(msg);
-    }
     dbLog('err', `✗ ${label} après ${ms}ms — ${e.message}`);
     throw e;
   }
