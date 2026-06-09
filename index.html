@@ -386,6 +386,25 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
 .sync-banner i { width: 16px; height: 16px; animation: spin 1s linear infinite; }
 .sync-banner .sync-step { opacity: 0.85; font-weight: 400; margin-left: var(--space-2); }
 
+/* GAGNANTS */
+.criteria-slider { width: 100%; margin: var(--space-2) 0; }
+.criteria-row { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); }
+.criteria-row label { min-width: 140px; font-size: var(--text-sm); font-weight: 600; }
+.criteria-row .val { min-width: 40px; text-align: right; font-weight: 700; color: var(--color-primary); font-size: var(--text-sm); }
+.winner-slot { background: var(--color-surface-offset); border: 2px solid var(--color-border); border-radius: var(--radius-xl); padding: var(--space-6); text-align: center; overflow: hidden; position: relative; min-height: 120px; display: flex; align-items: center; justify-content: center; }
+.winner-slot.active { border-color: var(--color-primary); box-shadow: 0 0 30px rgba(212, 175, 55, 0.3); }
+.slot-name { font-size: 1.5rem; font-weight: 800; color: var(--color-primary); line-height: 1.2; transition: all 0.1s; }
+.slot-scroll { animation: slotScroll 0.08s steps(1) infinite; }
+@keyframes slotScroll { 0%{opacity:1} 50%{opacity:0.3} 100%{opacity:1} }
+.winner-card { background: linear-gradient(135deg, var(--color-primary) 0%, #b8860b 100%); border-radius: var(--radius-xl); padding: var(--space-6); text-align: center; color: #fff; }
+.winner-card .w-rank { font-size: 2.5rem; margin-bottom: var(--space-2); }
+.winner-card .w-name { font-size: 1.4rem; font-weight: 800; margin-bottom: var(--space-1); }
+.winner-card .w-pts { font-size: 0.9rem; opacity: 0.85; }
+.mode-btn { padding: var(--space-2) var(--space-4); border-radius: var(--radius-lg); border: 2px solid var(--color-border); background: transparent; color: var(--color-text-muted); font-weight: 600; font-size: var(--text-sm); cursor: pointer; transition: all 0.2s; }
+.mode-btn.active { border-color: var(--color-primary); background: var(--color-primary); color: #fff; }
+.eligibles-bar { height: 6px; background: var(--color-surface-offset); border-radius: 3px; overflow: hidden; margin-top: var(--space-2); }
+.eligibles-fill { height: 100%; background: var(--color-primary); border-radius: 3px; transition: width 0.4s; }
+
 /* DASHBOARD TOGGLE */
 .dash-toggle { display: flex; border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; background: var(--color-surface-offset); }
 .dash-toggle-btn { padding: var(--space-2) var(--space-4); font-size: var(--text-sm); font-weight: 600; cursor: pointer; border: none; background: transparent; color: var(--color-text-muted); display: flex; align-items: center; gap: var(--space-1); transition: all var(--transition-interactive); white-space: nowrap; }
@@ -443,15 +462,11 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
 <header class="topbar">
   <div class="topbar-brand">
     <a class="topbar-logo" href="#">
-      <div class="topbar-logo-icon">
-        <svg viewBox="0 0 36 36" fill="none" aria-label="Mass'In Logo">
-          <rect width="36" height="36" rx="8" fill="var(--color-primary)"/>
-          <text x="18" y="25" text-anchor="middle" font-family="Georgia,serif" font-size="16" font-weight="700" fill="#fff">M</text>
-          <circle cx="28" cy="10" r="4" fill="#fff" opacity="0.9"/>
-          <circle cx="28" cy="10" r="2" fill="var(--color-primary)"/>
-        </svg>
-      </div>
-      <div>
+      <img src="https://img.mailinblue.com/7659215/images/content_library/original/6a02c8c77a289d644f875159.png"
+           alt="Mass'In"
+           style="height:38px;width:auto;object-fit:contain;"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='';">
+      <div style="display:none;">
         <div class="brand-name">Mass'In</div>
         <div class="brand-sub">Programme Fidélité — Anniversaire</div>
       </div>
@@ -483,6 +498,9 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
   </button>
   <button class="nav-tab" role="tab" onclick="switchView('bareme')">
     <i data-lucide="star"></i> Barème
+  </button>
+  <button class="nav-tab" role="tab" onclick="switchView('winners')">
+    <i data-lucide="trophy"></i> Gagnants
   </button>
   <button class="nav-tab" role="tab" onclick="switchView('settings')">
     <i data-lucide="settings-2"></i> Paramètres
@@ -584,9 +602,10 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
               <th>Téléphone</th>
               <th>Type</th>
               <th>Niveau</th>
-              <th>Pts Montant</th>
-              <th>Pts Fréquence</th>
-              <th>Total Points</th>
+              <th title="Points sur achats du mois en cours">Pts Montant</th>
+              <th title="Bonus fréquence du mois en cours">Pts Fréquence</th>
+              <th title="Points cumulés depuis 2016 : montant + bonus fréquence annuelle">Pts Historique</th>
+              <th title="Total = Montant + Fréquence + Historique" style="color:var(--color-primary);">Total Points</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -752,6 +771,88 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
       </div>
     </div>
   </div>
+  <!-- ======= GAGNANTS ======= -->
+  <div id="view-winners" class="view">
+    <div class="section-title mb-2">🏆 Sélection des Gagnants</div>
+    <div class="section-sub mb-6">Sélectionnez les gagnants de manière équitable selon les critères de votre choix</div>
+
+    <div class="grid-2 mb-6">
+      <!-- CRITÈRES -->
+      <div class="card">
+        <div class="card-title"><i data-lucide="sliders-horizontal"></i> Critères de sélection</div>
+
+        <div style="margin:var(--space-4) 0;font-size:var(--text-sm);font-weight:700;">Filtres d'éligibilité</div>
+        <div class="form-group">
+          <label class="form-label">Type de clients</label>
+          <select class="form-select" id="w-filter-type" onchange="updateWinnersPreview()">
+            <option value="">Tous les clients</option>
+            <option value="ancien">Anciens clients uniquement</option>
+            <option value="rachat">Rachats (achat ce mois-ci + historique)</option>
+            <option value="nouveau">Nouveaux clients uniquement</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Points minimum requis</label>
+          <input type="number" class="form-input" id="w-min-pts" value="0" min="0" oninput="updateWinnersPreview()">
+        </div>
+
+        <div class="divider"></div>
+        <div style="margin:var(--space-3) 0;font-size:var(--text-sm);font-weight:700;">Critère de classement</div>
+        <select class="form-select" id="w-sort-by" onchange="updateWinnersPreview()">
+          <option value="total">Points totaux (recommandé)</option>
+          <option value="amount">Montant cumulé (pts montant)</option>
+          <option value="freq">Fidélité (pts fréquence)</option>
+          <option value="history">Ancienneté (pts historiques)</option>
+          <option value="composite">Score composite personnalisé</option>
+        </select>
+
+        <div id="w-composite-weights" style="display:none;margin-top:var(--space-4);">
+          <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-bottom:var(--space-3);">Ajustez les poids du score composite (total = 100%)</div>
+          <div class="criteria-row"><label>💰 Montant</label><input type="range" class="criteria-slider" id="w-w-amount" min="0" max="100" value="40" oninput="syncWeights('amount')"><span class="val" id="w-v-amount">40%</span></div>
+          <div class="criteria-row"><label>🔄 Fréquence</label><input type="range" class="criteria-slider" id="w-w-freq" min="0" max="100" value="30" oninput="syncWeights('freq')"><span class="val" id="w-v-freq">30%</span></div>
+          <div class="criteria-row"><label>📅 Ancienneté</label><input type="range" class="criteria-slider" id="w-w-history" min="0" max="100" value="30" oninput="syncWeights('history')"><span class="val" id="w-v-history">30%</span></div>
+        </div>
+      </div>
+
+      <!-- MODE + NB GAGNANTS -->
+      <div class="card">
+        <div class="card-title"><i data-lucide="sparkles"></i> Mode de révélation</div>
+        <div class="flex-gap mb-4">
+          <button class="mode-btn active" id="mode-rank" onclick="setWinMode('rank')">🥇 Classement direct</button>
+          <button class="mode-btn" id="mode-lottery" onclick="setWinMode('lottery')">🎰 Tirage pondéré</button>
+        </div>
+        <div id="mode-rank-desc" style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-4);">
+          Les <strong>N meilleurs clients</strong> selon le critère choisi sont désignés gagnants. Résultat déterministe et transparent.
+        </div>
+        <div id="mode-lottery-desc" style="display:none;font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-4);">
+          Tirage avec <strong>tickets proportionnels aux points</strong>. Les meilleurs clients ont plus de chances, mais tout le monde peut gagner. Résultat avec animation.
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Nombre de gagnants</label>
+          <input type="number" class="form-input" id="w-nb-winners" value="1" min="1" max="20" oninput="updateWinnersPreview()">
+        </div>
+
+        <div class="divider"></div>
+        <div id="w-preview-stats">
+          <div style="font-size:var(--text-sm);color:var(--color-text-muted);">Ouvrez cet onglet avec des données chargées.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOUTON LANCEMENT -->
+    <div class="card mb-6" style="text-align:center;padding:var(--space-8);">
+      <div style="font-size:2rem;margin-bottom:var(--space-4);">🎉</div>
+      <button class="btn btn-primary" style="font-size:1.1rem;padding:var(--space-3) var(--space-8);" onclick="launchWinners()" id="btn-launch-winners">
+        <i data-lucide="zap"></i> Révéler les gagnants
+      </button>
+      <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-2);" id="w-launch-hint"></div>
+    </div>
+
+    <!-- RÉSULTATS -->
+    <div id="winners-result"></div>
+  </div>
+
   <!-- ======= PARAMÈTRES ======= -->
   <div id="view-settings" class="view">
     <div class="section-title mb-2">Paramètres &amp; Persistance des données</div>
@@ -1075,7 +1176,7 @@ function recalcClientPoints(clientId) {
   });
   client.ptsAmount = totalAmountPts;
   client.ptsFreq = totalFreqPts;
-  client.totalPoints = client.ptsAmount + client.ptsFreq + (client.historicalPoints || 0);
+  client.totalPoints = client.ptsAmount + client.ptsFreq + (client.historicalPoints || 0) + (client.historicalPtsFreq || 0);
 }
 
 // ===================== SEED DATA =====================
@@ -1126,11 +1227,12 @@ function switchView(view) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById(`view-${view}`).classList.add('active');
-  const idx = { dashboard: 0, clients: 1, import: 2, bareme: 3, settings: 4 }[view];
+  const idx = { dashboard: 0, clients: 1, import: 2, bareme: 3, winners: 4, settings: 5 }[view];
   document.querySelectorAll('.nav-tab')[idx].classList.add('active');
   if (view === 'dashboard') renderDashboard();
-  if (view === 'clients') renderClientsTable();
-  if (view === 'settings') initSettingsView();
+  if (view === 'clients')   renderClientsTable();
+  if (view === 'winners')   initWinnersView();
+  if (view === 'settings')  initSettingsView();
   lucide.createIcons();
 }
 
@@ -1409,7 +1511,7 @@ function renderClientsTable(resetPage = false) {
   const tbody   = document.getElementById('clients-tbody');
 
   if (total === 0) {
-    tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><i data-lucide="search-x"></i><h3>Aucun client trouvé</h3><p>Essayez d'autres termes de recherche.</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11"><div class="empty-state"><i data-lucide="search-x"></i><h3>Aucun client trouvé</h3><p>Essayez d'autres termes de recherche.</p></div></td></tr>`;
     lucide.createIcons({ nodes: [tbody] });
     // Clear pagination
     const pag = document.getElementById('clients-pagination');
@@ -1429,6 +1531,7 @@ function renderClientsTable(resetPage = false) {
       <td><span class="tier-indicator ${tier.cls}">${tier.emoji} ${tier.name}</span></td>
       <td class="font-mono">${fmtNum(c.ptsAmount)}</td>
       <td class="font-mono">${fmtNum(c.ptsFreq)}</td>
+      <td class="font-mono" style="color:var(--color-text-muted);" title="Montant: ${fmtNum(c.historicalPoints||0)} + Fréquence: ${fmtNum(c.historicalPtsFreq||0)}">${fmtNum((c.historicalPoints||0)+(c.historicalPtsFreq||0))}</td>
       <td class="font-mono" style="font-weight:700;color:var(--color-primary)">${fmtNum(c.totalPoints)}</td>
       <td>
         <div class="flex-gap" style="gap:var(--space-1);">
@@ -2272,7 +2375,8 @@ function processRows(rows, type, resultId) {
       const newName = name || email;
       const nc = { id: newId, name: newName, email, phone,
         type: type === 'legacy' ? 'ancien' : 'nouveau',
-        historicalPoints: histPts, ptsAmount: 0, ptsFreq: 0, totalPoints: histPts };
+        historicalPoints: histPts, historicalPtsFreq: 0,
+        ptsAmount: 0, ptsFreq: 0, totalPoints: histPts };
       clients.push(nc);
       // Mise à jour des Maps pour détecter les doublons dans la même passe
       if (nc.email) emailMap.set(nc.email.toLowerCase(), nc);
@@ -2287,11 +2391,22 @@ function processRows(rows, type, resultId) {
     }
   }
 
-  // Mise à jour finale en batch pour le mode legacy (évite O(n²))
+  // Mise à jour finale en batch pour le mode legacy
   if (type === 'legacy') {
+    // Compter le nombre d'années d'achat par client (= fréquence historique)
+    const yearCount = {};
+    for (let i = 1; i < rows.length; i++) {
+      const n = String(rows[i][0] || '').trim();
+      if (n) yearCount[n.toLowerCase()] = (yearCount[n.toLowerCase()] || 0) + 1;
+    }
     clients.forEach(c => {
-      c.totalPoints = (c.historicalPoints || 0) + (c.ptsAmount || 0) + (c.ptsFreq || 0);
+      const years    = yearCount[c.name.toLowerCase()] || 1;
+      const freqBonus = getFreqPts(years); // même barème que les achats mensuels
+      c.historicalPtsFreq = freqBonus;
+      c.totalPoints = (c.historicalPoints || 0) + freqBonus + (c.ptsAmount || 0) + (c.ptsFreq || 0);
     });
+    const withFreq = clients.filter(c => (c.historicalPtsFreq || 0) > 0).length;
+    dbLog('ok', `Bonus fréquence historique calculé : ${withFreq} clients avec bonus`);
   }
 
   const elapsed = Date.now() - t0;
@@ -2513,13 +2628,14 @@ async function dbFetch(label, url, options = {}, timeoutMs = 40000) {
 // Réduit le JSON de ~5MB à ~1.5MB en supprimant les champs vides/nuls
 function minifyClients(arr) {
   return arr.map(c => {
-    const m = { id: c.id, n: c.name, t: c.type };       // toujours présents
-    if (c.email)            m.e  = c.email;
-    if (c.phone)            m.ph = c.phone;
-    if (c.historicalPoints) m.h  = c.historicalPoints;
-    if (c.ptsAmount)        m.pa = c.ptsAmount;
-    if (c.ptsFreq)          m.pf = c.ptsFreq;
-    if (c.totalPoints)      m.tp = c.totalPoints;
+    const m = { id: c.id, n: c.name, t: c.type };
+    if (c.email)              m.e  = c.email;
+    if (c.phone)              m.ph = c.phone;
+    if (c.historicalPoints)   m.h  = c.historicalPoints;
+    if (c.historicalPtsFreq)  m.hf = c.historicalPtsFreq;
+    if (c.ptsAmount)          m.pa = c.ptsAmount;
+    if (c.ptsFreq)            m.pf = c.ptsFreq;
+    if (c.totalPoints)        m.tp = c.totalPoints;
     return m;
   });
 }
@@ -2530,11 +2646,212 @@ function expandClients(arr) {
     email:            c.e    || c.email || '',
     phone:            c.ph   || c.phone || '',
     type:             c.t    || c.type  || 'nouveau',
-    historicalPoints: c.h    || c.historicalPoints || 0,
+    historicalPoints:    c.h    || c.historicalPoints    || 0,
+    historicalPtsFreq:   c.hf   || c.historicalPtsFreq   || 0,
     ptsAmount:        c.pa   || c.ptsAmount  || 0,
     ptsFreq:          c.pf   || c.ptsFreq    || 0,
     totalPoints:      c.tp   || c.totalPoints || 0,
   }));
+}
+
+// ===================== GAGNANTS =====================
+let _winMode = 'rank';
+
+function setWinMode(mode) {
+  _winMode = mode;
+  document.getElementById('mode-rank').classList.toggle('active', mode === 'rank');
+  document.getElementById('mode-lottery').classList.toggle('active', mode === 'lottery');
+  document.getElementById('mode-rank-desc').style.display    = mode === 'rank'    ? '' : 'none';
+  document.getElementById('mode-lottery-desc').style.display = mode === 'lottery' ? '' : 'none';
+  updateWinnersPreview();
+}
+
+document.addEventListener('change', e => {
+  if (e.target.id === 'w-sort-by') {
+    const show = e.target.value === 'composite';
+    document.getElementById('w-composite-weights').style.display = show ? '' : 'none';
+    updateWinnersPreview();
+  }
+});
+
+function syncWeights(changed) {
+  // Keep total at 100% by adjusting others proportionally
+  const ids = ['amount','freq','history'];
+  const val = parseInt(document.getElementById(`w-w-${changed}`).value);
+  const others = ids.filter(k => k !== changed);
+  const remaining = 100 - val;
+  const cur = others.reduce((s, k) => s + parseInt(document.getElementById(`w-w-${k}`).value), 0);
+  if (cur > 0) {
+    others.forEach(k => {
+      const el = document.getElementById(`w-w-${k}`);
+      el.value = Math.round(parseInt(el.value) / cur * remaining);
+      document.getElementById(`w-v-${k}`).textContent = el.value + '%';
+    });
+  }
+  document.getElementById(`w-v-${changed}`).textContent = val + '%';
+  updateWinnersPreview();
+}
+
+function getClientScore(c, sortBy) {
+  if (sortBy === 'total')   return c.totalPoints || 0;
+  if (sortBy === 'amount')  return c.ptsAmount || 0;
+  if (sortBy === 'freq')    return (c.ptsFreq || 0) + (c.historicalPtsFreq || 0);
+  if (sortBy === 'history') return (c.historicalPoints || 0) + (c.historicalPtsFreq || 0);
+  if (sortBy === 'composite') {
+    const wA = parseInt(document.getElementById('w-w-amount')?.value  || 40) / 100;
+    const wF = parseInt(document.getElementById('w-w-freq')?.value    || 30) / 100;
+    const wH = parseInt(document.getElementById('w-w-history')?.value || 30) / 100;
+    const maxA = Math.max(...clients.map(x => x.ptsAmount || 0), 1);
+    const maxF = Math.max(...clients.map(x => (x.ptsFreq || 0) + (x.historicalPtsFreq || 0)), 1);
+    const maxH = Math.max(...clients.map(x => (x.historicalPoints || 0) + (x.historicalPtsFreq || 0)), 1);
+    return Math.round(
+      wA * ((c.ptsAmount || 0) / maxA) * 1000 +
+      wF * (((c.ptsFreq || 0) + (c.historicalPtsFreq || 0)) / maxF) * 1000 +
+      wH * (((c.historicalPoints || 0) + (c.historicalPtsFreq || 0)) / maxH) * 1000
+    );
+  }
+  return 0;
+}
+
+function getEligibleClients() {
+  const typeFilter = document.getElementById('w-filter-type')?.value || '';
+  const minPts     = parseInt(document.getElementById('w-min-pts')?.value || 0);
+  const sortBy     = document.getElementById('w-sort-by')?.value || 'total';
+  const now        = new Date();
+
+  return clients.filter(c => {
+    if (minPts > 0 && (c.totalPoints || 0) < minPts) return false;
+    if (typeFilter === 'ancien')  return c.type === 'ancien';
+    if (typeFilter === 'nouveau') return c.type === 'nouveau';
+    if (typeFilter === 'rachat') {
+      // A au moins un achat ce mois-ci ET est un ancien client
+      const hasMonthPurchase = purchases.some(p => {
+        if (p.clientId !== c.id) return false;
+        const d = new Date(p.date);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      });
+      return c.type === 'ancien' && hasMonthPurchase;
+    }
+    return true;
+  }).map(c => ({ ...c, _score: getClientScore(c, sortBy) }))
+    .sort((a, b) => b._score - a._score);
+}
+
+function updateWinnersPreview() {
+  const eligible = getEligibleClients();
+  const nb       = parseInt(document.getElementById('w-nb-winners')?.value || 1);
+  const preview  = document.getElementById('w-preview-stats');
+  const hint     = document.getElementById('w-launch-hint');
+  if (!preview) return;
+  const pct = clients.length > 0 ? Math.round(eligible.length / clients.length * 100) : 0;
+  preview.innerHTML = `
+    <div style="font-size:var(--text-sm);margin-bottom:var(--space-2);">
+      <strong style="font-size:1.3rem;color:var(--color-primary);">${fmtNum(eligible.length)}</strong>
+      <span style="color:var(--color-text-muted);"> clients éligibles sur ${fmtNum(clients.length)} (${pct}%)</span>
+    </div>
+    <div class="eligibles-bar"><div class="eligibles-fill" style="width:${pct}%"></div></div>
+    ${eligible.length > 0 ? `<div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-2);">
+      Meilleur score : <strong>${eligible[0].name}</strong> — ${fmtNum(eligible[0]._score)} pts
+    </div>` : ''}`;
+  if (hint) hint.textContent = eligible.length < nb
+    ? `⚠️ Seulement ${eligible.length} client(s) éligible(s)`
+    : `${_winMode === 'lottery' ? '🎰 Tirage pondéré parmi' : '🥇 Top'} ${Math.min(nb, eligible.length)} sur ${fmtNum(eligible.length)} éligibles`;
+}
+
+function initWinnersView() {
+  updateWinnersPreview();
+  lucide.createIcons();
+}
+
+async function launchWinners() {
+  const eligible = getEligibleClients();
+  const nb       = Math.min(parseInt(document.getElementById('w-nb-winners')?.value || 1), eligible.length);
+  const result   = document.getElementById('winners-result');
+  if (!result) return;
+  if (eligible.length === 0) { showToast('Aucun client éligible avec ces critères.', 'error'); return; }
+
+  let winners = [];
+  if (_winMode === 'rank') {
+    winners = eligible.slice(0, nb);
+    renderWinners(winners, false);
+  } else {
+    // Tirage pondéré avec animation
+    result.innerHTML = `<div class="grid-2" id="slot-grid"></div>`;
+    const grid = document.getElementById('slot-grid');
+    const slots = [];
+    for (let i = 0; i < nb; i++) {
+      const div = document.createElement('div');
+      div.className = 'winner-slot active';
+      div.innerHTML = `<div class="slot-name slot-scroll" id="slot-${i}">—</div>`;
+      grid.appendChild(div);
+      slots.push(div);
+    }
+    lucide.createIcons();
+    // Draw winners (weighted by score)
+    const pool = [...eligible];
+    const drawn = [];
+    for (let i = 0; i < nb; i++) {
+      const totalWeight = pool.reduce((s, c) => s + Math.max(c._score, 1), 0);
+      let rand = Math.random() * totalWeight;
+      let winner = pool[0];
+      for (const c of pool) { rand -= Math.max(c._score, 1); if (rand <= 0) { winner = c; break; } }
+      drawn.push(winner);
+      pool.splice(pool.indexOf(winner), 1);
+    }
+    // Animate each slot
+    for (let i = 0; i < nb; i++) {
+      await animateSlot(slots[i], document.getElementById(`slot-${i}`), eligible, drawn[i], i * 800 + 500);
+    }
+    winners = drawn;
+  }
+}
+
+function animateSlot(slotEl, nameEl, pool, finalWinner, delay) {
+  return new Promise(resolve => {
+    setTimeout(() => {
+      let ticks = 0;
+      const maxTicks = 25 + Math.floor(Math.random() * 20);
+      const iv = setInterval(() => {
+        const rand = pool[Math.floor(Math.random() * pool.length)];
+        nameEl.textContent = rand.name;
+        ticks++;
+        if (ticks >= maxTicks) {
+          clearInterval(iv);
+          nameEl.classList.remove('slot-scroll');
+          nameEl.textContent = finalWinner.name;
+          slotEl.classList.remove('active');
+          slotEl.innerHTML = `
+            <div>
+              <div style="font-size:2rem;margin-bottom:var(--space-2);">🏆</div>
+              <div class="slot-name" style="color:var(--color-primary);">${finalWinner.name}</div>
+              <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-1);">
+                ${fmtNum(finalWinner._score)} pts · ${getTier(finalWinner.totalPoints).emoji} ${getTier(finalWinner.totalPoints).name}
+              </div>
+            </div>`;
+          resolve();
+        }
+      }, 80);
+    }, delay);
+  });
+}
+
+function renderWinners(winners, animated) {
+  const result = document.getElementById('winners-result');
+  if (!result) return;
+  const medals = ['🥇','🥈','🥉'];
+  result.innerHTML = `
+    <div class="section-sub mb-4">Résultats du classement</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--space-4);">
+      ${winners.map((c, i) => `
+        <div class="winner-card">
+          <div class="w-rank">${medals[i] || `#${i+1}`}</div>
+          <div class="w-name">${c.name}</div>
+          <div class="w-pts">
+            ${fmtNum(c._score)} pts · ${getTier(c.totalPoints).emoji} ${getTier(c.totalPoints).name}<br>
+            <span style="opacity:0.7;font-size:0.8em;">Montant: ${fmtNum(c.ptsAmount||0)} · Fréq: ${fmtNum((c.ptsFreq||0)+(c.historicalPtsFreq||0))} · Hist: ${fmtNum((c.historicalPoints||0))}</span>
+          </div>
+        </div>`).join('')}
+    </div>`;
 }
 
 // ===================== INIT =====================
