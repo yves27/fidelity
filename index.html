@@ -370,7 +370,19 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
 .text-muted { color: var(--color-text-muted); font-size: var(--text-sm); }
 .font-mono { font-variant-numeric: tabular-nums; }
 
-/* SYNC STATUS BADGE */
+/* DASHBOARD TOGGLE */
+.dash-toggle { display: flex; border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; background: var(--color-surface-offset); }
+.dash-toggle-btn { padding: var(--space-2) var(--space-4); font-size: var(--text-sm); font-weight: 600; cursor: pointer; border: none; background: transparent; color: var(--color-text-muted); display: flex; align-items: center; gap: var(--space-1); transition: all var(--transition-interactive); white-space: nowrap; }
+.dash-toggle-btn i { width: 14px; height: 14px; }
+.dash-toggle-btn.active { background: var(--color-primary); color: #fff; }
+.dash-toggle-btn:hover:not(.active) { background: var(--color-surface-dynamic); color: var(--color-text); }
+.tier-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-3); margin-top: var(--space-4); }
+@media (max-width: 700px) { .tier-grid { grid-template-columns: repeat(3, 1fr); } }
+.tier-stat { text-align: center; padding: var(--space-3); background: var(--color-surface-offset); border-radius: var(--radius-lg); }
+.tier-stat .t-emoji { font-size: 1.4rem; line-height: 1; margin-bottom: var(--space-1); }
+.tier-stat .t-num { font-size: var(--text-xl); font-weight: 800; }
+.tier-stat .t-lbl { font-size: var(--text-xs); color: var(--color-text-muted); margin-top: 2px; }
+
 .sync-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: var(--radius-full); font-size: 0.72rem; font-weight: 600; cursor: default; transition: all var(--transition-interactive); }
 .sync-badge i { width: 11px; height: 11px; }
 .sync-badge.ok   { background: var(--color-success-highlight); color: var(--color-success); }
@@ -469,45 +481,37 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
     <div class="flex-between mb-6" style="flex-wrap:wrap; gap:var(--space-3);">
       <div>
         <div class="section-title" id="dash-period-title">Tableau de bord</div>
-        <div class="text-muted">Campagne Anniversaire Mass'In · Achetez & Gagnez</div>
+        <div class="text-muted">Campagne Anniversaire Mass'In · Achetez &amp; Gagnez</div>
       </div>
-      <div class="flex-gap">
-        <span id="dash-month-badge" class="badge badge-gold"><i data-lucide="calendar" style="width:12px;height:12px;"></i> Mois en cours</span>
+      <div class="flex-gap" style="flex-wrap:wrap;">
+        <div class="dash-toggle" role="group" aria-label="Mode tableau de bord">
+          <button class="dash-toggle-btn active" id="btn-dash-global" onclick="setDashMode('global')">
+            <i data-lucide="globe-2"></i> Vue globale
+          </button>
+          <button class="dash-toggle-btn" id="btn-dash-month" onclick="setDashMode('month')">
+            <i data-lucide="calendar-days"></i> <span id="dash-month-btn-label">Vue mensuelle</span>
+          </button>
+        </div>
+        <span id="dash-month-badge" class="badge badge-gold" style="display:none;">
+          <i data-lucide="calendar" style="width:12px;height:12px;"></i> <span id="dash-badge-text">Mois en cours</span>
+        </span>
       </div>
     </div>
 
-    <!-- KPI STATS -->
-    <div class="grid-4 mb-6" id="kpi-grid">
-      <div class="stat-card gold">
-        <div class="stat-label">Total clients</div>
-        <div class="stat-value" id="kpi-total-clients">0</div>
-        <div class="stat-sub">Inscrits au programme</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Points distribués</div>
-        <div class="stat-value" id="kpi-total-points">0</div>
-        <div class="stat-sub">Ce mois-ci</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Achats ce mois</div>
-        <div class="stat-value" id="kpi-purchases-month">0</div>
-        <div class="stat-sub">Transactions enregistrées</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">CA total (Ar)</div>
-        <div class="stat-value" id="kpi-ca">0</div>
-        <div class="stat-sub">Montant cumulé</div>
-      </div>
-    </div>
+    <!-- KPI STATS — injecté dynamiquement -->
+    <div class="grid-4 mb-6" id="kpi-grid"></div>
+
+    <!-- RÉPARTITION TIERS — vue globale uniquement -->
+    <div id="tier-distribution" class="mb-6"></div>
 
     <!-- CLASSEMENT + RÉCENTS -->
     <div class="grid-2">
       <div class="card">
-        <div class="card-title"><i data-lucide="trophy"></i> Top 5 — Meilleurs clients</div>
+        <div class="card-title" id="podium-title"><i data-lucide="trophy"></i> Top 5 clients</div>
         <div id="podium-list" class="podium"></div>
       </div>
       <div class="card">
-        <div class="card-title"><i data-lucide="clock"></i> Derniers achats</div>
+        <div class="card-title" id="recent-title"><i data-lucide="clock"></i> Derniers achats</div>
         <div id="recent-purchases"></div>
       </div>
     </div>
@@ -1125,12 +1129,15 @@ function getCurrentMonthLabel() {
 
 function updateDynamicLabels() {
   const { month, year } = getCurrentMonthLabel();
-  // Titre tableau de bord
+  // Titre tableau de bord (mode global)
   const dashTitle = document.getElementById('dash-period-title');
-  if (dashTitle) dashTitle.textContent = `Tableau de bord — ${month} ${year}`;
-  // Badge mois en cours
-  const dashBadge = document.getElementById('dash-month-badge');
-  if (dashBadge) dashBadge.innerHTML = `<i data-lucide="calendar" style="width:12px;height:12px;"></i> ${month} ${year}`;
+  if (dashTitle) dashTitle.textContent = `Tableau de bord`;
+  // Bouton toggle "Vue mensuelle"
+  const btnLabel = document.getElementById('dash-month-btn-label');
+  if (btnLabel) btnLabel.textContent = `${month} ${year}`;
+  // Badge mois (visible en mode mensuel)
+  const badgeText = document.getElementById('dash-badge-text');
+  if (badgeText) badgeText.textContent = `${month} ${year}`;
   // Titre import mensuel
   const importLabel = document.getElementById('import-month-label');
   if (importLabel) importLabel.textContent = `Ventes du mois (${month})`;
@@ -1144,63 +1151,198 @@ function updateDynamicLabels() {
 }
 
 // ===================== DASHBOARD =====================
+// ===================== DASHBOARD =====================
+let dashMode = 'global'; // 'global' | 'month'
+
+function setDashMode(mode) {
+  dashMode = mode;
+  document.getElementById('btn-dash-global').classList.toggle('active', mode === 'global');
+  document.getElementById('btn-dash-month').classList.toggle('active', mode === 'month');
+  const badge = document.getElementById('dash-month-badge');
+  if (badge) badge.style.display = mode === 'month' ? '' : 'none';
+  renderDashboard();
+}
+
 function renderDashboard() {
-  const totalPts = clients.reduce((a, c) => a + c.totalPoints, 0);
+  if (dashMode === 'month') renderDashboardMonthly();
+  else renderDashboardGlobal();
+  lucide.createIcons();
+}
+
+function renderDashboardGlobal() {
+  const total    = clients.length;
+  const anciens  = clients.filter(c => c.type === 'ancien').length;
+  const nouveaux = total - anciens;
+  const totalPts = clients.reduce((s, c) => s + (c.totalPoints || 0), 0);
+  const pct      = total > 0 ? Math.round(anciens / total * 100) : 0;
+
+  // Tier counts
+  const tierCounts = { Platine: 0, Or: 0, Argent: 0, Bronze: 0 };
+  clients.forEach(c => {
+    const t = getTier(c.totalPoints).name;
+    if (tierCounts[t] !== undefined) tierCounts[t]++;
+  });
+
+  // KPI grid
+  document.getElementById('kpi-grid').innerHTML = `
+    <div class="stat-card gold">
+      <div class="stat-label">Total clients</div>
+      <div class="stat-value">${fmtNum(total)}</div>
+      <div class="stat-sub">Inscrits au programme</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Anciens clients</div>
+      <div class="stat-value">${fmtNum(anciens)}</div>
+      <div class="stat-sub">${pct}% du total</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Nouveaux inscrits</div>
+      <div class="stat-value">${fmtNum(nouveaux)}</div>
+      <div class="stat-sub">Issus du programme actuel</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Points distribués</div>
+      <div class="stat-value">${fmtNum(totalPts)}</div>
+      <div class="stat-sub">Total cumulé tous temps</div>
+    </div>`;
+
+  // Répartition tiers
+  const tierDef = [
+    { name: 'Platine', emoji: '💎', color: 'var(--color-primary)' },
+    { name: 'Or',      emoji: '🥇', color: '#d4af37' },
+    { name: 'Argent',  emoji: '🥈', color: '#a8a9ad' },
+    { name: 'Bronze',  emoji: '🥉', color: '#cd7f32' },
+  ];
+  const tierDiv = document.getElementById('tier-distribution');
+  if (total === 0) {
+    tierDiv.innerHTML = '';
+  } else {
+    tierDiv.innerHTML = `<div class="card">
+      <div class="card-title"><i data-lucide="bar-chart-2"></i> Répartition par niveau de fidélité</div>
+      <div class="tier-grid">
+        ${tierDef.map(t => {
+          const n = tierCounts[t.name] || 0;
+          const pct2 = total > 0 ? Math.round(n / total * 100) : 0;
+          return `<div class="tier-stat">
+            <div class="t-emoji">${t.emoji}</div>
+            <div class="t-num" style="color:${t.color};">${fmtNum(n)}</div>
+            <div class="t-lbl">${t.name}</div>
+            <div class="t-lbl" style="margin-top:2px;opacity:.7;">${pct2}%</div>
+          </div>`;
+        }).join('')}
+        <div class="tier-stat">
+          <div class="t-emoji">🆕</div>
+          <div class="t-num" style="color:var(--color-text-muted);">${fmtNum(nouveaux)}</div>
+          <div class="t-lbl">Nouveau</div>
+          <div class="t-lbl" style="margin-top:2px;opacity:.7;">${total > 0 ? Math.round(nouveaux/total*100) : 0}%</div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // Podium — top all-time
+  document.getElementById('podium-title').innerHTML = `<i data-lucide="trophy"></i> Top 5 — Tous temps`;
+  renderPodium([...clients].sort((a, b) => b.totalPoints - a.totalPoints).slice(0, 5));
+
+  // Derniers achats
+  document.getElementById('recent-title').innerHTML = `<i data-lucide="clock"></i> Derniers achats enregistrés`;
+  renderRecentPurchases([...purchases].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 6));
+}
+
+function renderDashboardMonthly() {
+  const { month, year } = getCurrentMonthLabel();
+  const now = new Date();
   const monthPurchases = purchases.filter(p => {
     const d = new Date(p.date);
-    const now = new Date();
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   });
-  const totalCA = monthPurchases.reduce((a, p) => a + p.amount, 0);
-  document.getElementById('kpi-total-clients').textContent = clients.length;
-  document.getElementById('kpi-total-points').textContent = fmtNum(totalPts);
-  document.getElementById('kpi-purchases-month').textContent = monthPurchases.length;
-  document.getElementById('kpi-ca').textContent = fmtNum(totalCA) + ' Ar';
+  const caMonth      = monthPurchases.reduce((s, p) => s + p.amount, 0);
+  const clientsMonth = new Set(monthPurchases.map(p => p.clientId)).size;
+  const rachats      = [...new Set(monthPurchases.map(p => p.clientId))]
+    .filter(id => { const c = clients.find(cl => cl.id === id); return c && c.type === 'ancien'; }).length;
+  const ptsMonth     = monthPurchases.reduce((s, p) => s + getAmountPts(p.amount), 0);
 
-  // Podium
-  const sorted = [...clients].sort((a, b) => b.totalPoints - a.totalPoints).slice(0, 5);
+  document.getElementById('kpi-grid').innerHTML = `
+    <div class="stat-card gold">
+      <div class="stat-label">Clients actifs</div>
+      <div class="stat-value">${fmtNum(clientsMonth)}</div>
+      <div class="stat-sub">Ayant acheté en ${month}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">CA du mois (Ar)</div>
+      <div class="stat-value">${fmtNum(caMonth)}</div>
+      <div class="stat-sub">${monthPurchases.length} transaction(s)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Rachats</div>
+      <div class="stat-value">${fmtNum(rachats)}</div>
+      <div class="stat-sub">Anciens clients actifs ce mois</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Points distribués</div>
+      <div class="stat-value">${fmtNum(ptsMonth)}</div>
+      <div class="stat-sub">En ${month} ${year}</div>
+    </div>`;
+
+  // Pas de répartition tiers en mode mensuel
+  document.getElementById('tier-distribution').innerHTML = '';
+
+  // Podium du mois
+  const caByClient = monthPurchases.reduce((acc, p) => {
+    acc[p.clientId] = (acc[p.clientId] || 0) + p.amount; return acc;
+  }, {});
+  const topClients = Object.entries(caByClient)
+    .sort((a, b) => b[1] - a[1]).slice(0, 5)
+    .map(([id]) => clients.find(c => c.id === Number(id))).filter(Boolean);
+
+  document.getElementById('podium-title').innerHTML = `<i data-lucide="trophy"></i> Top 5 — ${month} ${year}`;
+  renderPodium(topClients);
+
+  document.getElementById('recent-title').innerHTML = `<i data-lucide="clock"></i> Achats de ${month} ${year}`;
+  renderRecentPurchases([...monthPurchases].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 6));
+}
+
+function renderPodium(sorted) {
   const maxPts = sorted[0]?.totalPoints || 1;
-  const podium = document.getElementById('podium-list');
-  if (sorted.length === 0) {
-    podium.innerHTML = '<div class="empty-state" style="padding:var(--space-8)"><i data-lucide="users"></i><p>Aucun client enregistré.</p></div>';
-  } else {
-    podium.innerHTML = sorted.map((c, i) => {
-      const tier = getTier(c.totalPoints);
-      const rankCls = i === 0 ? 'r1' : i === 1 ? 'r2' : i === 2 ? 'r3' : 'r-other';
-      return `<div class="podium-item">
-        <div class="podium-rank ${rankCls}">${i + 1}</div>
-        <div class="podium-info">
-          <div class="podium-name">${c.name}</div>
-          <div class="podium-detail">${tier.emoji} ${tier.name} · ${c.type === 'ancien' ? 'Ancien client' : 'Nouveau client'}</div>
-          <div class="progress-bar mt-2"><div class="progress-fill" style="width:${Math.round((c.totalPoints / maxPts) * 100)}%"></div></div>
-        </div>
-        <div class="podium-pts">${fmtNum(c.totalPoints)} pts</div>
-      </div>`;
-    }).join('');
+  const el = document.getElementById('podium-list');
+  if (!sorted.length) {
+    el.innerHTML = '<div class="empty-state" style="padding:var(--space-8)"><i data-lucide="users"></i><p>Aucun client pour cette période.</p></div>';
+    return;
   }
+  el.innerHTML = sorted.map((c, i) => {
+    const tier = getTier(c.totalPoints);
+    const rankCls = ['r1','r2','r3'][i] || 'r-other';
+    return `<div class="podium-item">
+      <div class="podium-rank ${rankCls}">${i + 1}</div>
+      <div class="podium-info">
+        <div class="podium-name">${c.name}</div>
+        <div class="podium-detail">${tier.emoji} ${tier.name} · ${c.type === 'ancien' ? 'Ancien client' : 'Nouveau'}</div>
+        <div class="progress-bar mt-2"><div class="progress-fill" style="width:${Math.round((c.totalPoints/maxPts)*100)}%"></div></div>
+      </div>
+      <div class="podium-pts">${fmtNum(c.totalPoints)} pts</div>
+    </div>`;
+  }).join('');
+}
 
-  // Recent purchases
-  const recent = [...purchases].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 6);
-  const recEl = document.getElementById('recent-purchases');
-  if (recent.length === 0) {
-    recEl.innerHTML = '<div class="empty-state" style="padding:var(--space-8)"><i data-lucide="shopping-bag"></i><p>Aucun achat enregistré.</p></div>';
-  } else {
-    recEl.innerHTML = recent.map(p => {
-      const client = clients.find(c => c.id === p.clientId);
-      const pts = getAmountPts(p.amount);
-      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-2) 0;border-bottom:1px solid var(--color-divider);font-size:var(--text-sm);">
-        <div>
-          <div style="font-weight:600;">${client ? client.name : 'Inconnu'}</div>
-          <div style="font-size:var(--text-xs);color:var(--color-text-muted);">${fmtDate(p.date)}</div>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-weight:600;">${fmtNum(p.amount)} Ar</div>
-          <div style="font-size:var(--text-xs);color:var(--color-primary);font-weight:700;">+${pts} pts</div>
-        </div>
-      </div>`;
-    }).join('');
+function renderRecentPurchases(list) {
+  const el = document.getElementById('recent-purchases');
+  if (!list.length) {
+    el.innerHTML = '<div class="empty-state" style="padding:var(--space-8)"><i data-lucide="shopping-bag"></i><p>Aucun achat pour cette période.</p></div>';
+    return;
   }
-  lucide.createIcons();
+  el.innerHTML = list.map(p => {
+    const c = clients.find(cl => cl.id === p.clientId);
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-2) 0;border-bottom:1px solid var(--color-divider);font-size:var(--text-sm);">
+      <div>
+        <div style="font-weight:600;">${c ? c.name : 'Inconnu'}</div>
+        <div style="font-size:var(--text-xs);color:var(--color-text-muted);">${fmtDate(p.date)}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-weight:600;">${fmtNum(p.amount)} Ar</div>
+        <div style="font-size:var(--text-xs);color:var(--color-primary);font-weight:700;">+${getAmountPts(p.amount)} pts</div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // ===================== CLIENTS TABLE =====================
@@ -1935,16 +2077,17 @@ function exportCSV() {
 
 // ===================== INIT =====================
 (function init() {
-  loadLocal();             // charge localStorage (ou rien si vide — pas de démo)
+  const hasLocal = loadLocal();   // true si données en localStorage
   GS_URL = localStorage.getItem('massin_gs_url') || '';
   renderDashboard();
   updateDynamicLabels();
   updateSyncBadge();
   lucide.createIcons();
 
-  // Si l'URL Sheets est déjà configurée → synchro automatique au chargement
-  if (GS_URL) {
-    setTimeout(() => syncToSheets(true), 3000);
+  // Si localStorage vide ET URL Sheets configurée → charger depuis Sheets automatiquement
+  // (ne jamais pousser vers Sheets au chargement pour éviter d'écraser les données cloud)
+  if (!hasLocal && GS_URL) {
+    setTimeout(() => loadFromSheets(), 2000);
   }
 })();
 </script>
