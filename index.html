@@ -2033,55 +2033,95 @@ async function loadFromSupabase(silent = false) {
   } finally { hideSyncBanner(); setSyncBadgeLoading(false); }
 }
 
-async function syncToSupabase(silent = false) {
-  // Diagnostic immédiat — visible même si quelque chose bloque
-  dbLog('info', 'syncToSupabase appelé — SUPA_URL=' + (SUPA_URL ? 'OK' : 'VIDE') +
-    ' SUPA_KEY=' + (SUPA_KEY ? 'OK' : 'VIDE') + ' clients=' + clients.length);
-
-  if (!SUPA_URL || !SUPA_KEY) {
-    showToast('❌ Identifiants Supabase manquants — allez dans Paramètres.', 'error');
-    // Forcer l'ouverture de l'onglet Paramètres pour guider l'utilisateur
-    switchView('settings');
-    return;
-  }
-  if (clients.length === 0) {
-    showToast('❌ Aucune donnée en mémoire — importez d\'abord un fichier XLSX.', 'error');
-    return;
-  }
-  const BATCH = 500;
-  if (!silent) showSyncBanner('Sauvegarde vers Supabase…', fmtNum(clients.length) + ' clients');
-  setSyncBadgeLoading(true);
-  dbLog('info', 'syncToSupabase — ' + clients.length + ' clients, ' + purchases.length + ' achats');
+async function syncToSupabase(silent) {
+  if (silent === undefined) silent = false;
+  dbLog('info', 'syncToSupabase démarré — URL=' + (SUPA_URL?'OK':'VIDE') + ' KEY=' + (SUPA_KEY?'OK':'VIDE') + ' clients=' + clients.length);
+  
+  // Tout dans un try-catch global — aucune erreur ne peut échapper
   try {
+    if (!SUPA_URL || !SUPA_KEY) {
+      showToast('❌ Allez dans Paramètres et enregistrez vos identifiants Supabase.', 'error');
+      switchView('settings');
+      return;
+    }
+    if (clients.length === 0) {
+      showToast('❌ 0 clients en mémoire. Importez le XLSX d’abord.', 'error');
+      return;
+    }
+    
+    dbLog('info', 'Préparation banniere...');
+    const bannerEl = document.getElementById('sync-loading-banner');
+    if (bannerEl) {
+      bannerEl.style.display = 'flex';
+      const bt = document.getElementById('sync-banner-text');
+      const bs = document.getElementById('sync-banner-step');
+      if (bt) bt.textContent = 'Sauvegarde vers Supabase…';
+      if (bs) bs.textContent = fmtNum(clients.length) + ' clients';
+    }
+    dbLog('info', 'Bannière affichée, lancement des batchs...');
+    
+    const BATCH = 500;
+    let sent = 0;
     for (let i = 0; i < clients.length; i += BATCH) {
       const batch = clients.slice(i, i + BATCH).map(clientToDB);
-      await supaFetch('clients', {
+      dbLog('info', 'Batch ' + (Math.floor(i/BATCH)+1) + '/' + Math.ceil(clients.length/BATCH) + ' (' + batch.length + ' clients)');
+      
+      const res = await fetch(SUPA_URL + '/rest/v1/clients', {
         method: 'POST',
-        headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+        headers: {
+          'apikey': SUPA_KEY,
+          'Authorization': 'Bearer ' + SUPA_KEY,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates,return=minimal'
+        },
         body: JSON.stringify(batch)
       });
-      if (!silent) showSyncBanner('Sauvegarde…', fmtNum(i + batch.length) + '/' + fmtNum(clients.length));
+      
+      if (!res.ok) {
+        const errText = await res.text().catch(() => 'no body');
+        throw new Error('HTTP ' + res.status + ' — ' + errText.substring(0, 200));
+      }
+      sent += batch.length;
+      const bs2 = document.getElementById('sync-banner-step');
+      if (bs2) bs2.textContent = fmtNum(sent) + '/' + fmtNum(clients.length);
     }
+    
     if (purchases.length > 0) {
+      dbLog('info', 'Sauvegarde achats: ' + purchases.length);
       for (let i = 0; i < purchases.length; i += BATCH) {
         const batch = purchases.slice(i, i + BATCH).map(p =>
-          ({ id: p.id, client_id: p.clientId, amount: p.amount, date: p.date }));
-        await supaFetch('purchases', {
+          ({id: p.id, client_id: p.clientId, amount: p.amount, date: p.date}));
+        const res = await fetch(SUPA_URL + '/rest/v1/purchases', {
           method: 'POST',
-          headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+          headers: {
+            'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY,
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates,return=minimal'
+          },
           body: JSON.stringify(batch)
         });
+        if (!res.ok) {
+          const errText = await res.text().catch(() => '');
+          throw new Error('Achats HTTP ' + res.status + ' — ' + errText.substring(0, 100));
+        }
       }
     }
+    
     localStorage.setItem('supa_synced_at', new Date().toISOString());
-    dbLog('ok', 'Sync OK — ' + clients.length + ' clients');
-    if (!silent) showToast('✅ ' + fmtNum(clients.length) + ' clients sauvegardés.', 'success');
-    initSettingsView(); updateSyncBadge();
-  } catch(e) {
-    dbLog('err', 'syncToSupabase : ' + e.message);
-    if (!silent) showToast('Erreur : ' + e.message, 'error');
-  } finally { hideSyncBanner(); setSyncBadgeLoading(false); }
+    dbLog('ok', 'Sync Supabase terminé — ' + clients.length + ' clients');
+    showToast('✅ ' + fmtNum(clients.length) + ' clients sauvegardés sur Supabase !', 'success');
+    try { initSettingsView(); } catch(e2) {}
+    try { updateSyncBadge(); } catch(e2) {}
+    
+  } catch(err) {
+    dbLog('err', 'ERREUR syncToSupabase: ' + err.message);
+    showToast('❌ Erreur Supabase: ' + err.message, 'error');
+  } finally {
+    const bannerEl2 = document.getElementById('sync-loading-banner');
+    if (bannerEl2) bannerEl2.style.display = 'none';
+  }
 }
+
 
 async function testSupabase() {
   const url = document.getElementById('supa-url-input').value.trim();
@@ -2509,7 +2549,7 @@ function clearDebug() {
 }
 
 function copyDebugLog() {
-  const text = '=== MASS\'IN DEBUG LOG ===\n'
+  const text = '=== MASS\'IN DEBUG LOG v2.1 ===\n'
     + `Date : ${new Date().toLocaleString('fr-FR')}\n`
     + `Clients : ${clients.length} | Achats : ${purchases.length}\n`
     + `GS URL : ${localStorage.getItem('massin_gs_url') || 'NON CONFIGURÉE'}\n`
