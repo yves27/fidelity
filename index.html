@@ -1661,14 +1661,13 @@ function simulatePoints() {
 // ===================== PERSISTENCE — localStorage =====================
 function saveLocal() {
   try {
-    localStorage.setItem('massin_clients',   JSON.stringify(clients));
+    // Format minifié : ~1.9MB au lieu de ~6MB pour 39K clients → reste dans la limite 5MB
+    localStorage.setItem('massin_clients',   JSON.stringify(minifyClients(clients)));
     localStorage.setItem('massin_purchases', JSON.stringify(purchases));
     localStorage.setItem('massin_saved_at',  new Date().toISOString());
   } catch(e) {
-    // QuotaExceededError — dataset trop grand pour localStorage (limite ~5MB)
-    // Les données restent en mémoire pour la session, mais non persistées localement
-    console.warn('localStorage quota dépassé — données en mémoire uniquement', e);
-    localStorage.setItem('massin_saved_at', new Date().toISOString()); // au moins la date
+    console.warn('localStorage quota dépassé même en format minifié :', e);
+    localStorage.setItem('massin_saved_at', new Date().toISOString());
   }
   updateSyncBadge();
   autoSync();
@@ -1678,9 +1677,11 @@ function saveLocal() {
 let _autoSyncTimer = null;
 function autoSync() {
   const url = localStorage.getItem('massin_gs_url');
-  if (!url) return; // pas d'URL configurée → rien à faire
+  if (!url) return;
+  // Base trop grande → pas d'auto-sync (utiliser le bouton manuel dans Paramètres)
+  if (clients.length > 1000) return;
   clearTimeout(_autoSyncTimer);
-  _autoSyncTimer = setTimeout(() => syncToSheets(true), 2000);
+  _autoSyncTimer = setTimeout(() => syncToSheets(true), 3000);
 }
 
 function loadLocal() {
@@ -1688,7 +1689,9 @@ function loadLocal() {
     const c = localStorage.getItem('massin_clients');
     const p = localStorage.getItem('massin_purchases');
     if (c && p) {
-      clients   = JSON.parse(c);
+      const raw = JSON.parse(c);
+      // Support format minifié (champ 'n' = name) et format classique
+      clients   = raw.length > 0 && raw[0].n !== undefined ? expandClients(raw) : raw;
       purchases = JSON.parse(p);
       return true;
     }
@@ -1907,7 +1910,9 @@ async function syncToSheets(silent = false) {
   try {
     const payload = { action: 'sync', c: minifyClients(clients), p: purchases, v: 2 };
     const body    = JSON.stringify(payload);
-    dbLog('info', `Payload : ${Math.round(body.length/1024)} KB compressé`);
+    const kb      = Math.round(body.length / 1024);
+    dbLog('info', `Payload : ${kb} KB compressé`);
+    if (!silent) showSyncBanner('Sauvegarde vers Google Drive…', `${fmtNum(clients.length)} clients — ${kb} KB`);
     const res  = await dbFetch('SYNC_POST', url, {
       method: 'POST', mode: 'cors', redirect: 'follow',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body
