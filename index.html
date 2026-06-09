@@ -910,6 +910,14 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
             <i data-lucide="cloud-upload"></i> Sauvegarder vers Supabase
           </button>
         </div>
+        <div style="margin-top:var(--space-3);">
+          <button class="btn btn-primary" style="width:100%;" onclick="generateHTMLWithCredentials()">
+            <i data-lucide="file-down"></i> Générer HTML avec mes identifiants
+          </button>
+          <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-1);text-align:center;">
+            Télécharge un index.html avec vos identifiants intégrés → uploadez sur GitHub → tous les appareils se connectent automatiquement
+          </div>
+        </div>
         <div id="supa-last-sync" style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-3);"></div>
       </div>
     </div>
@@ -1898,8 +1906,13 @@ ALTER TABLE purchases ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public" ON clients FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Public" ON purchases FOR ALL USING (true) WITH CHECK (true);`;
 
-let SUPA_URL = localStorage.getItem('supa_url') || '';
-let SUPA_KEY = localStorage.getItem('supa_key') || '';
+// Identifiants Supabase embarqués — remplacez ces valeurs une fois,
+// uploadez sur GitHub, et TOUS les appareils se connecteront automatiquement
+const DEFAULT_SUPA_URL = '';
+const DEFAULT_SUPA_KEY = '';
+
+let SUPA_URL = localStorage.getItem('supa_url') || DEFAULT_SUPA_URL || '';
+let SUPA_KEY = localStorage.getItem('supa_key') || DEFAULT_SUPA_KEY || '';
 
 // Wrapper API Supabase — REST direct, CORS natif, pas de cold start
 async function supaFetch(path, opts = {}) {
@@ -2046,6 +2059,46 @@ function saveSupaConfig() {
   localStorage.setItem('supa_key', key);
   showToast('Configuration Supabase enregistrée.', 'success');
   updateSyncBadge();
+}
+
+function setSyncBadgeLoading(on) {
+  const badge = document.getElementById('sync-badge');
+  if (!badge) return;
+  if (on) {
+    badge.className = 'sync-badge warn spin';
+    badge.querySelector('i').setAttribute('data-lucide', 'loader');
+    const t = document.getElementById('sync-badge-text');
+    if (t) t.textContent = 'Sync…';
+    lucide.createIcons({ nodes: [badge] });
+  } else {
+    badge.classList.remove('spin');
+    updateSyncBadge();
+  }
+}
+
+// Génère un index.html avec les identifiants Supabase embarqués
+// → uploadez ce fichier sur GitHub → tous les appareils se connectent automatiquement
+function generateHTMLWithCredentials() {
+  if (!SUPA_URL || !SUPA_KEY) {
+    showToast('Enregistrez d\'abord vos identifiants Supabase.', 'error'); return;
+  }
+  // Lire le HTML actuel de la page, remplacer les constantes vides par les vraies valeurs
+  fetch(window.location.href)
+    .then(r => r.text())
+    .then(src => {
+      const updated = src
+        .replace("const DEFAULT_SUPA_URL = '';", "const DEFAULT_SUPA_URL = '" + SUPA_URL + "';")
+        .replace("const DEFAULT_SUPA_KEY = '';", "const DEFAULT_SUPA_KEY = '" + SUPA_KEY + "';");
+      const blob = new Blob([updated], { type: 'text/html' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'index.html';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
+      showToast('index.html généré — uploadez-le sur GitHub !', 'success');
+      dbLog('ok', 'HTML avec identifiants Supabase généré');
+    })
+    .catch(() => showToast('Erreur de génération — rechargez et réessayez.', 'error'));
 }
 
 function copySQLSchema() {
@@ -2771,8 +2824,11 @@ function renderWinners(winners, animated) {
 
 // ===================== INIT =====================
 (function init() {
-  SUPA_URL = localStorage.getItem('supa_url') || '';
-  SUPA_KEY = localStorage.getItem('supa_key') || '';
+  SUPA_URL = localStorage.getItem('supa_url') || DEFAULT_SUPA_URL || '';
+  SUPA_KEY = localStorage.getItem('supa_key') || DEFAULT_SUPA_KEY || '';
+  // Persiste les defaults en localStorage si pas encore définis
+  if (DEFAULT_SUPA_URL && !localStorage.getItem('supa_url')) localStorage.setItem('supa_url', DEFAULT_SUPA_URL);
+  if (DEFAULT_SUPA_KEY && !localStorage.getItem('supa_key')) localStorage.setItem('supa_key', DEFAULT_SUPA_KEY);
 
   const hasLocal = loadLocal();
   renderDashboard();
