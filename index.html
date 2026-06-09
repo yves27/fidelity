@@ -2757,20 +2757,40 @@ async function dbFetch(label, url, options = {}, timeoutMs = 40000) {
 
 // ── Compression payload ──────────────────────────────────────────────────────
 // Réduit le JSON de ~5MB à ~1.5MB en supprimant les champs vides/nuls
+// Format tableau : ~40% plus compact que les objets
+// [name, type, h, hf, pa, pf, tp, email, phone, id]
 function minifyClients(arr) {
-  return arr.map(c => {
-    const m = { id: c.id, n: c.name, t: c.type };
-    if (c.email)              m.e  = c.email;
-    if (c.phone)              m.ph = c.phone;
-    if (c.historicalPoints)   m.h  = c.historicalPoints;
-    if (c.historicalPtsFreq)  m.hf = c.historicalPtsFreq;
-    if (c.ptsAmount)          m.pa = c.ptsAmount;
-    if (c.ptsFreq)            m.pf = c.ptsFreq;
-    if (c.totalPoints)        m.tp = c.totalPoints;
-    return m;
-  });
+  return arr.map(c => [
+    c.name             || '',
+    c.type             || 'nouveau',
+    c.historicalPoints || 0,
+    c.historicalPtsFreq|| 0,
+    c.ptsAmount        || 0,
+    c.ptsFreq          || 0,
+    c.totalPoints      || 0,
+    c.email            || '',
+    c.phone            || '',
+    c.id               || 0
+  ]);
 }
 function expandClients(arr) {
+  if (!Array.isArray(arr) || arr.length === 0) return [];
+  // Format tableau v3
+  if (Array.isArray(arr[0])) {
+    return arr.map(r => ({
+      name:              r[0] || '',
+      type:              r[1] || 'nouveau',
+      historicalPoints:  r[2] || 0,
+      historicalPtsFreq: r[3] || 0,
+      ptsAmount:         r[4] || 0,
+      ptsFreq:           r[5] || 0,
+      totalPoints:       r[6] || 0,
+      email:             r[7] || '',
+      phone:             r[8] || '',
+      id:                r[9] || 0,
+    }));
+  }
+  // Format objet v1/v2 (rétrocompatibilité)
   return arr.map(c => ({
     id:               c.id   || 0,
     name:             c.n    || c.name  || '',
