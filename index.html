@@ -617,74 +617,77 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
 
   <!-- ======= IMPORT ======= -->
   <div id="view-import" class="view">
-    <div class="section-title mb-6">Import & Synchronisation des données</div>
+    <div class="section-title mb-2">Import des données ODOO</div>
+    <div class="section-sub mb-6">
+      Importez votre export ODOO complet (toutes les années). Le système analyse automatiquement 
+      l'historique, détecte les nouveaux clients, les rachats et calcule tous les points.
+    </div>
 
-    <div class="grid-2">
-      <!-- Import Anciens Clients -->
-      <div class="card">
-        <div class="card-title"><i data-lucide="database"></i> Base historique (depuis 2016)</div>
-        <div class="alert alert-info mt-2 mb-4">
-          <i data-lucide="info"></i>
-          <div>Importez votre export ODOO (CSV). Les colonnes attendues : <strong>nom, email, téléphone, montant_total</strong>. Les points historiques sont calculés automatiquement.</div>
+    <div class="card mb-6">
+      <div class="card-title"><i data-lucide="upload-cloud"></i> Fichier ODOO — Toutes les ventes</div>
+      <div class="alert alert-info mb-4">
+        <i data-lucide="info"></i>
+        <div>
+          <strong>Workflow simplifié :</strong> exportez depuis ODOO le tableau croisé dynamique complet 
+          (toutes les années), importez ici. Le système fait tout automatiquement :<br>
+          <strong>• Historique</strong> (avant <span id="import-current-year">2026</span>) → Pts Montant + Fréquence fidélité<br>
+          <strong>• Campagne</strong> (<span id="import-current-year-2">2026</span>) → Pts campagne + détection nouveaux/rachats<br>
+          Re-importez chaque mois avec l'export mis à jour — toutes les stats se recalculent.
         </div>
-        <div class="import-zone" id="drop-zone-legacy" onclick="document.getElementById('file-legacy').click()" ondragover="handleDragOver(event,'drop-zone-legacy')" ondragleave="handleDragLeave('drop-zone-legacy')" ondrop="handleDrop(event,'legacy')">
-          <i data-lucide="upload-cloud"></i>
-          <p><strong>Glissez votre fichier CSV ODOO ici</strong></p>
-          <p>ou cliquez pour parcourir vos fichiers</p>
-        </div>
-        <input type="file" id="file-legacy" accept=".csv,.txt,.xlsx,.xls" style="display:none;" onchange="handleFileImport(this,'legacy')">
-        <div id="import-legacy-result" class="mt-4"></div>
       </div>
-
-      <!-- Import Mois en cours -->
-      <div class="card">
-        <div class="card-title"><i data-lucide="file-spreadsheet"></i> <span id="import-month-label">Ventes du mois</span></div>
-        <div class="alert alert-info mt-2 mb-4">
-          <i data-lucide="info"></i>
-          <div>Importez les ventes du mois en cours. Le système <strong>détecte automatiquement</strong> si le client existe déjà et cumule ses points.</div>
-        </div>
-        <div class="import-zone" id="drop-zone-monthly" onclick="document.getElementById('file-monthly').click()" ondragover="handleDragOver(event,'drop-zone-monthly')" ondragleave="handleDragLeave('drop-zone-monthly')" ondrop="handleDrop(event,'monthly')">
-          <i data-lucide="calendar-plus"></i>
-          <p><strong>Glissez votre fichier CSV des ventes ici</strong></p>
-          <p>ou cliquez pour parcourir vos fichiers</p>
-        </div>
-        <input type="file" id="file-monthly" accept=".csv,.txt,.xlsx,.xls" style="display:none;" onchange="handleFileImport(this,'monthly')">
-        <div id="import-monthly-result" class="mt-4"></div>
+      <div class="import-zone" id="drop-zone-legacy" 
+        onclick="document.getElementById('file-legacy').click()"
+        ondragover="handleDragOver(event,'drop-zone-legacy')"
+        ondragleave="handleDragLeave('drop-zone-legacy')"
+        ondrop="handleDrop(event,'legacy')">
+        <i data-lucide="upload-cloud"></i>
+        <p><strong>Glissez votre fichier ODOO ici</strong> (.xlsx ou .csv)</p>
+        <p>Tableau croisé dynamique — toutes les années</p>
       </div>
+      <input type="file" id="file-legacy" accept=".csv,.txt,.xlsx,.xls" style="display:none;" 
+        onchange="handleFileImport(this,'legacy')">
+      <div id="import-legacy-result" class="mt-4"></div>
     </div>
 
     <!-- GUIDE FORMAT -->
-    <div class="card mt-6">
-      <div class="card-title"><i data-lucide="help-circle"></i> Format attendu pour le CSV</div>
+    <div class="card">
+      <div class="card-title"><i data-lucide="help-circle"></i> Format du fichier ODOO</div>
       <div class="grid-2 mt-4">
         <div>
-          <h4 class="mb-4" style="font-size:var(--text-sm);font-weight:700;">📋 Colonnes acceptées (séparateur virgule ou point-virgule)</h4>
+          <h4 class="mb-4" style="font-size:var(--text-sm);font-weight:700;">📋 Format pivot ODOO (détecté automatiquement)</h4>
           <div class="table-wrap">
             <table class="data-table">
-              <thead><tr><th>Colonne</th><th>Obligatoire</th><th>Exemple</th></tr></thead>
+              <thead><tr><th>Colonne</th><th>Description</th></tr></thead>
               <tbody>
-                <tr><td><code>nom</code> ou <code>name</code></td><td><span class="badge badge-red">Oui</span></td><td>Rakoto Jean</td></tr>
-                <tr><td><code>email</code></td><td><span class="badge badge-orange">Recommandé</span></td><td>jean@gmail.com</td></tr>
-                <tr><td><code>telephone</code> ou <code>phone</code></td><td><span class="badge badge-orange">Recommandé</span></td><td>034 12 345 67</td></tr>
-                <tr><td><code>montant</code> ou <code>amount</code></td><td><span class="badge badge-red">Oui</span></td><td>250000</td></tr>
-                <tr><td><code>date</code></td><td><span class="badge badge-green">Optionnel</span></td><td id="import-date-example">2026-06-12</td></tr>
+                <tr><td><code>Nom client</code></td><td>Nom du client (clé primaire)</td></tr>
+                <tr><td><code>2016, 2017…</code></td><td>CA annuel → points historiques</td></tr>
+                <tr><td><code>2026</code></td><td>CA campagne actuelle → rachats/nouveaux</td></tr>
               </tbody>
             </table>
           </div>
+          <div class="alert alert-success mt-4">
+            <i data-lucide="check-circle"></i>
+            <div>
+              <strong>Nouveau vs Rachat :</strong> détecté automatiquement.<br>
+              • <strong>Rachat</strong> = client avec historique <em>et</em> achat en <span id="import-year-badge">2026</span><br>
+              • <strong>Nouveau</strong> = seulement apparu en <span id="import-year-badge-2">2026</span>
+            </div>
+          </div>
         </div>
         <div>
-          <h4 class="mb-4" style="font-size:var(--text-sm);font-weight:700;">🔗 Logique de matching (Déjà client ?)</h4>
-          <div style="font-size:var(--text-sm);color:var(--color-text-muted);display:flex;flex-direction:column;gap:var(--space-3);">
-            <div class="alert alert-success"><i data-lucide="check-circle"></i><div>L'email est le <strong>premier critère</strong> de matching. Si un email est trouvé, les points s'ajoutent.</div></div>
-            <div class="alert alert-warning"><i data-lucide="alert-triangle"></i><div>Si pas d'email, le système compare le <strong>numéro de téléphone</strong>.</div></div>
-            <div class="alert alert-info"><i data-lucide="info"></i><div>Si aucun match : <strong>nouveau client créé</strong> avec 0 point historique.</div></div>
+          <h4 class="mb-4" style="font-size:var(--text-sm);font-weight:700;">🔄 Workflow recommandé</h4>
+          <div class="step-list">
+            <div class="step-item"><div class="step-num">1</div><div class="step-content">Dans ODOO, générez le <strong>tableau croisé dynamique</strong> des factures avec toutes les années.</div></div>
+            <div class="step-item"><div class="step-num">2</div><div class="step-content">Exportez en <strong>.xlsx</strong> et glissez-le ici. L'import prend ~2 secondes.</div></div>
+            <div class="step-item"><div class="step-num">3</div><div class="step-content">Les <strong>points, niveaux et statistiques</strong> se calculent instantanément.</div></div>
+            <div class="step-item"><div class="step-num">4</div><div class="step-content">Chaque mois : re-exportez depuis ODOO et <strong>re-importez</strong>. Tout se met à jour.</div></div>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ======= BAREME ======= -->
+  <!-- ======= BAREME  <!-- ======= BAREME ======= -->
   <div id="view-bareme" class="view">
     <div class="section-title mb-2">Barème du Programme de Fidélité</div>
     <div class="section-sub">Système d'attribution des points — Campagne Anniversaire Mass'In</div>
@@ -1278,6 +1281,9 @@ function updateDynamicLabels() {
   // Titre tableau de bord (mode global)
   const dashTitle = document.getElementById('dash-period-title');
   if (dashTitle) dashTitle.textContent = `Tableau de bord`;
+    // Mettre à jour les années dans l'onglet import
+  const currYrEls = document.querySelectorAll('[id^="import-current-year"],[id^="import-year-badge"]');
+  currYrEls.forEach(el => { el.textContent = new Date().getFullYear(); });
   // Bouton toggle "Vue mensuelle"
   const btnLabel = document.getElementById('dash-month-btn-label');
   if (btnLabel) btnLabel.textContent = `${month} ${year}`;
@@ -1286,7 +1292,7 @@ function updateDynamicLabels() {
   if (badgeText) badgeText.textContent = `${month} ${year}`;
   // Titre import mensuel
   const importLabel = document.getElementById('import-month-label');
-  if (importLabel) importLabel.textContent = `Ventes du mois (${month})`;
+  if (importLabel) importLabel.textContent = 'Ventes du mois';
   // Exemple de date dans le guide import
   const dateEx = document.getElementById('import-date-example');
   if (dateEx) {
@@ -2454,18 +2460,27 @@ function processRows(rows, type, resultId) {
         // Pour mensuel on recalcule (peu de clients)
         recalcClientPoints(existing.id);
       } else if (amount > 0 && type === 'legacy') {
-        existing.historicalPoints = (existing.historicalPoints || 0) + getAmountPts(amount);
-        // PAS de recalcClientPoints ici — totalPoints mis à jour en batch à la fin
+        const yr = parseInt(String(getCol(row, 'annee', 'year', 'an') || '0'));
+        const currYr = new Date().getFullYear();
+        if (yr === currYr) {
+          existing.ptsAmount = (existing.ptsAmount || 0) + getAmountPts(amount);
+        } else {
+          existing.historicalPoints = (existing.historicalPoints || 0) + getAmountPts(amount);
+        }
       }
       updated++;
     } else {
       const newId   = nextClientId++;
-      const histPts = type === 'legacy' ? getAmountPts(amount) : 0;
+      const currYr  = new Date().getFullYear();
+      const rowYr   = parseInt(String(getCol(row, 'annee', 'year', 'an') || '0'));
+      const isCurrentYr = (type === 'legacy' && rowYr === currYr);
+      const histPts = (type === 'legacy' && !isCurrentYr) ? getAmountPts(amount) : 0;
+      const campPts = isCurrentYr ? getAmountPts(amount) : 0;
       const newName = name || email;
       const nc = { id: newId, name: newName, email, phone,
-        type: type === 'legacy' ? 'ancien' : 'nouveau',
+        type: 'nouveau', // sera corrigé dans le batch final
         historicalPoints: histPts, historicalPtsFreq: 0,
-        ptsAmount: 0, ptsFreq: 0, totalPoints: histPts };
+        ptsAmount: campPts, ptsFreq: 0, totalPoints: histPts + campPts };
       clients.push(nc);
       // Mise à jour des Maps pour détecter les doublons dans la même passe
       if (nc.email) emailMap.set(nc.email.toLowerCase(), nc);
@@ -2480,22 +2495,43 @@ function processRows(rows, type, resultId) {
     }
   }
 
-  // Mise à jour finale en batch pour le mode legacy
+  // Finalisation : séparation historique vs campagne en cours
   if (type === 'legacy') {
-    // Compter le nombre d'années d'achat par client (= fréquence historique)
-    const yearCount = {};
+    const currentYear = new Date().getFullYear(); // ex: 2026
+
+    // Compter les années PRÉ-campagne et campagne par client
+    const yearCountHist = {}; // années avant currentYear
+    const yearCountCamp = {}; // années = currentYear
     for (let i = 1; i < rows.length; i++) {
-      const n = String(rows[i][0] || '').trim();
-      if (n) yearCount[n.toLowerCase()] = (yearCount[n.toLowerCase()] || 0) + 1;
+      const n   = String(rows[i][0] || '').trim().toLowerCase();
+      const yr  = parseInt(String(rows[i][2] || rows[i][1] || '').trim());
+      if (!n) continue;
+      if (yr < currentYear) yearCountHist[n] = (yearCountHist[n] || 0) + 1;
+      if (yr === currentYear) yearCountCamp[n] = (yearCountCamp[n] || 0) + 1;
     }
+
+    // Recalculer les points : séparer historique vs campagne
     clients.forEach(c => {
-      const years    = yearCount[c.name.toLowerCase()] || 1;
-      const freqBonus = getFreqPts(years); // même barème que les achats mensuels
-      c.historicalPtsFreq = freqBonus;
-      c.totalPoints = (c.historicalPoints || 0) + freqBonus + (c.ptsAmount || 0) + (c.ptsFreq || 0);
+      const key = c.name.toLowerCase();
+      const hasHistory = (yearCountHist[key] || 0) > 0;
+      const hasCampaign = (yearCountCamp[key] || 0) > 0;
+
+      // Type : nouveau si seulement apparu en currentYear, ancien sinon
+      c.type = hasHistory ? 'ancien' : 'nouveau';
+
+      // Bonus fréquence basé sur les années HISTORIQUES uniquement
+      c.historicalPtsFreq = getFreqPts(yearCountHist[key] || 0);
+
+      // ptsAmount = points calculés sur la colonne currentYear (déjà calculés dans la boucle)
+      // => à recalculer à partir des données brutes
+      c.totalPoints = (c.historicalPoints || 0) + (c.historicalPtsFreq || 0) +
+                      (c.ptsAmount || 0) + (c.ptsFreq || 0);
     });
+
+    const rachats  = clients.filter(c => c.type === 'ancien' && (c.ptsAmount || 0) > 0).length;
+    const nouveaux = clients.filter(c => c.type === 'nouveau' && (c.ptsAmount || 0) > 0).length;
     const withFreq = clients.filter(c => (c.historicalPtsFreq || 0) > 0).length;
-    dbLog('ok', `Bonus fréquence historique calculé : ${withFreq} clients avec bonus`);
+    dbLog('ok', `Analyse ${currentYear}: ${rachats} rachats, ${nouveaux} nouveaux, ${withFreq} avec bonus fréquence`);
   }
 
   const elapsed = Date.now() - t0;
