@@ -1916,6 +1916,24 @@ function updateSyncBadge() {
   }
 }
 
+
+// ===================== SYNC BANNER =====================
+function showSyncBanner(text, step) {
+  const b = document.getElementById('sync-loading-banner');
+  if (!b) return;
+  b.style.display = 'flex';
+  const t = document.getElementById('sync-banner-text');
+  const s = document.getElementById('sync-banner-step');
+  if (t) t.textContent = text || '';
+  if (s) s.textContent = step || '';
+  try { lucide.createIcons({ nodes: [b] }); } catch(e) {}
+}
+function hideSyncBanner() {
+  const b = document.getElementById('sync-loading-banner');
+  if (b) b.style.display = 'none';
+}
+function _releaseLock() {}   // compatîbilité bouton Annuler
+
 // ===================== SUPABASE SYNC =====================
 const SQL_SCHEMA = `-- Collez ce code dans Supabase → SQL Editor → Run
 CREATE TABLE IF NOT EXISTS clients (
