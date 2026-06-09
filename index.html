@@ -2214,8 +2214,16 @@ function processRows(rows, type, resultId) {
   let added = 0, updated = 0, skipped = 0;
   const t0 = Date.now();
 
-  // Pré-calcul des IDs max UNE SEULE FOIS avant la boucle — évite O(n²)
-  // Math.max(...array) avec 40k éléments peut aussi faire stack overflow → reduce
+  // Maps de lookup O(1) — construites UNE SEULE FOIS avant la boucle
+  // clients.find() dans la boucle = O(n) × 55K lignes = ~1 milliard d'ops → trop lent
+  const emailMap = new Map();
+  const phoneMap = new Map();
+  const nameMap  = new Map();
+  clients.forEach(c => {
+    if (c.email) emailMap.set(c.email.toLowerCase(), c);
+    if (c.phone) phoneMap.set(c.phone, c);
+    if (c.name)  nameMap.set(c.name.toLowerCase().trim(), c);
+  });
   let nextClientId   = clients.reduce((m, c) => Math.max(m, c.id || 0), 0) + 1;
   let nextPurchaseId = purchases.reduce((m, p) => Math.max(m, p.id || 0), 0) + 1;
 
@@ -2236,10 +2244,11 @@ function processRows(rows, type, resultId) {
 
     if (!name && !email) { skipped++; continue; }
 
+    // Lookup O(1) via Map au lieu de clients.find() O(n)
     let existing = null;
-    if (email) existing = clients.find(c => c.email && c.email.toLowerCase() === email.toLowerCase());
-    if (!existing && phone) existing = clients.find(c => c.phone === phone);
-    if (!existing && name) existing = clients.find(c => c.name.toLowerCase().trim() === name.toLowerCase().trim());
+    if (email) existing = emailMap.get(email.toLowerCase());
+    if (!existing && phone) existing = phoneMap.get(phone);
+    if (!existing && name)  existing = nameMap.get(name.toLowerCase().trim());
 
     if (existing) {
       if (amount > 0 && type === 'monthly') {
@@ -2253,14 +2262,17 @@ function processRows(rows, type, resultId) {
       }
       updated++;
     } else {
-      const newId = nextClientId++;
+      const newId   = nextClientId++;
       const histPts = type === 'legacy' ? getAmountPts(amount) : 0;
-      clients.push({
-        id: newId, name: name || email, email, phone,
+      const newName = name || email;
+      const nc = { id: newId, name: newName, email, phone,
         type: type === 'legacy' ? 'ancien' : 'nouveau',
-        historicalPoints: histPts, ptsAmount: 0, ptsFreq: 0,
-        totalPoints: histPts  // ← direct, pas de recalcClientPoints
-      });
+        historicalPoints: histPts, ptsAmount: 0, ptsFreq: 0, totalPoints: histPts };
+      clients.push(nc);
+      // Mise à jour des Maps pour détecter les doublons dans la même passe
+      if (nc.email) emailMap.set(nc.email.toLowerCase(), nc);
+      if (nc.phone) phoneMap.set(nc.phone, nc);
+      if (nc.name)  nameMap.set(nc.name.toLowerCase().trim(), nc);
       if (type === 'monthly' && amount > 0) {
         const pid = nextPurchaseId++;
         purchases.push({ id: pid, clientId: newId, amount, date: finalDate });
