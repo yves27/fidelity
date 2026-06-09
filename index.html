@@ -1793,10 +1793,9 @@ function loadLocal() {
     const p = localStorage.getItem('massin_purchases');
     if (c && p) {
       const raw = JSON.parse(c);
-      // Support format minifié (champ 'n' = name) et format classique
       clients   = raw.length > 0 && raw[0].n !== undefined ? expandClients(raw) : raw;
       purchases = JSON.parse(p);
-      return true;
+      return clients.length > 0; // false si tableaux vides → déclenche l'auto-load
     }
   } catch(e) { console.warn('localStorage read failed', e); }
   return false;
@@ -2874,9 +2873,8 @@ function renderWinners(winners, animated) {
   lucide.createIcons();
 
   if (!hasLocal && GS_URL) {
-    // Nouvel appareil ou cache vidé → charger automatiquement depuis Drive
-    showSyncBanner('Chargement des données…', 'Premier lancement sur cet appareil');
-    setTimeout(() => loadFromSheets(true), 1000);
+    // Nouvel appareil / cache vide → chargement visible avec feedback
+    setTimeout(() => loadFromSheets(false), 800);
   }
 })();
 </script>
