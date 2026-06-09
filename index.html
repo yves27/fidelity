@@ -901,6 +901,7 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
           <button class="btn btn-primary btn-sm" onclick="saveSupaConfig()"><i data-lucide="save"></i> Enregistrer</button>
         </div>
         <div id="supa-test-result"></div>
+        <div id="supa-status" style="margin-top:var(--space-3);padding:var(--space-3);background:var(--color-surface-offset);border-radius:var(--radius-md);font-size:var(--text-xs);font-family:monospace;"></div>
         <div class="divider"></div>
         <div class="flex-gap" style="justify-content:space-between;flex-wrap:wrap;">
           <button class="btn btn-secondary btn-sm" onclick="loadFromSupabase()" id="btn-load-supa">
@@ -1856,6 +1857,43 @@ function confirmClearLocal() {
   showToast('Données réinitialisées avec les données de démo.', 'info');
 }
 
+function initSettingsView() {
+  const lsClients   = document.getElementById('ls-clients');
+  const lsPurchases = document.getElementById('ls-purchases');
+  const lsLastSave  = document.getElementById('ls-last-save');
+  if (lsClients)   lsClients.textContent   = fmtNum(clients.length);
+  if (lsPurchases) lsPurchases.textContent = fmtNum(purchases.length);
+  const savedAt = localStorage.getItem('massin_saved_at');
+  if (lsLastSave) lsLastSave.textContent = savedAt
+    ? 'Derni\u00e8re sauvegarde locale : ' + new Date(savedAt).toLocaleString('fr-FR')
+    : 'Aucune sauvegarde locale.';
+  const supaLastSync = document.getElementById('supa-last-sync');
+  const syncedAt = localStorage.getItem('supa_synced_at');
+  if (supaLastSync) supaLastSync.textContent = syncedAt
+    ? 'Derni\u00e8re sync : ' + new Date(syncedAt).toLocaleString('fr-FR')
+    : 'Aucune synchronisation effectu\u00e9e.';
+  const statusEl = document.getElementById('supa-status');
+  if (statusEl) {
+    const urlOk  = !!SUPA_URL;
+    const keyOk  = !!SUPA_KEY;
+    const dataOk = clients.length > 0;
+    statusEl.innerHTML =
+      '<span style="color:' + (urlOk ? 'var(--color-success)' : 'var(--color-error)') + '">● URL : ' +
+        (urlOk ? SUPA_URL.replace('https://','').substring(0,35) + '\u2026' : 'NON CONFIGUR\u00c9E') + '</span><br>' +
+      '<span style="color:' + (keyOk ? 'var(--color-success)' : 'var(--color-error)') + '">● Cl\u00e9 : ' +
+        (keyOk ? SUPA_KEY.substring(0,22) + '\u2026' : 'NON CONFIGUR\u00c9E') + '</span><br>' +
+      '<span style="color:' + (dataOk ? 'var(--color-success)' : 'var(--color-warning)') + '">● Donn\u00e9es : ' +
+        (dataOk ? fmtNum(clients.length) + ' clients en m\u00e9moire \u2705' : '0 clients \u2014 importez un XLSX') + '</span>';
+  }
+  const schemaEl = document.getElementById('sql-schema-display');
+  if (schemaEl) schemaEl.textContent = SQL_SCHEMA;
+  const supaUrlEl = document.getElementById('supa-url-input');
+  const supaKeyEl = document.getElementById('supa-key-input');
+  if (supaUrlEl) supaUrlEl.value = SUPA_URL;
+  if (supaKeyEl) supaKeyEl.value = SUPA_KEY;
+  lucide.createIcons();
+}
+
 function updateSyncBadge() {
   const badge = document.getElementById('sync-badge');
   const text  = document.getElementById('sync-badge-text');
@@ -1981,11 +2019,19 @@ async function loadFromSupabase(silent = false) {
 }
 
 async function syncToSupabase(silent = false) {
+  // Diagnostic immédiat — visible même si quelque chose bloque
+  dbLog('info', 'syncToSupabase appelé — SUPA_URL=' + (SUPA_URL ? 'OK' : 'VIDE') +
+    ' SUPA_KEY=' + (SUPA_KEY ? 'OK' : 'VIDE') + ' clients=' + clients.length);
+
   if (!SUPA_URL || !SUPA_KEY) {
-    if (!silent) showToast('Configurez Supabase dans Paramètres.', 'error'); return;
+    showToast('❌ Identifiants Supabase manquants — allez dans Paramètres.', 'error');
+    // Forcer l'ouverture de l'onglet Paramètres pour guider l'utilisateur
+    switchView('settings');
+    return;
   }
   if (clients.length === 0) {
-    if (!silent) showToast('Aucune donnée à sauvegarder.', 'error'); return;
+    showToast('❌ Aucune donnée en mémoire — importez d\'abord un fichier XLSX.', 'error');
+    return;
   }
   const BATCH = 500;
   if (!silent) showSyncBanner('Sauvegarde vers Supabase…', fmtNum(clients.length) + ' clients');
