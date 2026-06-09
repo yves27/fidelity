@@ -370,6 +370,11 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
 .text-muted { color: var(--color-text-muted); font-size: var(--text-sm); }
 .font-mono { font-variant-numeric: tabular-nums; }
 
+/* LOADING BANNER */
+.sync-banner { position: fixed; top: 56px; left: 0; right: 0; z-index: 200; background: var(--color-primary); color: #fff; padding: var(--space-2) var(--space-6); display: flex; align-items: center; gap: var(--space-3); font-size: var(--text-sm); font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.2); transition: opacity 0.3s; }
+.sync-banner i { width: 16px; height: 16px; animation: spin 1s linear infinite; }
+.sync-banner .sync-step { opacity: 0.85; font-weight: 400; margin-left: var(--space-2); }
+
 /* DASHBOARD TOGGLE */
 .dash-toggle { display: flex; border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; background: var(--color-surface-offset); }
 .dash-toggle-btn { padding: var(--space-2) var(--space-4); font-size: var(--text-sm); font-weight: 600; cursor: pointer; border: none; background: transparent; color: var(--color-text-muted); display: flex; align-items: center; gap: var(--space-1); transition: all var(--transition-interactive); white-space: nowrap; }
@@ -786,10 +791,10 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
         <div id="gs-test-result"></div>
         <div class="divider"></div>
         <div class="flex-gap" style="justify-content:space-between; flex-wrap:wrap;">
-          <button class="btn btn-secondary btn-sm" onclick="loadFromSheets()" id="btn-load-sheets" disabled>
+          <button class="btn btn-secondary btn-sm" onclick="loadFromSheets()" id="btn-load-sheets">
             <i data-lucide="cloud-download"></i> Charger depuis Sheets
           </button>
-          <button class="btn btn-success btn-sm" onclick="syncToSheets()" id="btn-sync-sheets" disabled>
+          <button class="btn btn-success btn-sm" onclick="syncToSheets()" id="btn-sync-sheets">
             <i data-lucide="cloud-upload"></i> Sauvegarder vers Sheets
           </button>
         </div>
@@ -850,6 +855,11 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
 </div>
 
 <!-- TOAST CONTAINER -->
+<div id="sync-loading-banner" style="display:none;" class="sync-banner">
+  <i data-lucide="loader"></i>
+  <span id="sync-banner-text">Synchronisation en cours…</span>
+  <span class="sync-step" id="sync-banner-step"></span>
+</div>
 <div class="toast-container" id="toast-container"></div>
 
 <!-- ======= MODAL : NOUVEL ACHAT ======= -->
@@ -1806,10 +1816,13 @@ function saveGSConfig() {
 
 function toggleSheetButtons() {
   const url = (document.getElementById('gs-url-input')?.value || '').trim();
-  const ok = url.startsWith('https://script.google.com');
-  ['btn-load-sheets','btn-sync-sheets'].forEach(id => {
+  const ok  = url.startsWith('https://script.google.com');
+  ['btn-load-sheets', 'btn-sync-sheets'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.disabled = !ok;
+    if (!el) return;
+    // Ne jamais désactiver — la fonction elle-même vérifie l'URL
+    el.style.opacity = ok ? '1' : '0.5';
+    el.title = ok ? '' : 'Enregistrez d\'abord une URL Apps Script valide';
   });
 }
 
@@ -1840,16 +1853,31 @@ async function testGSConnection() {
   }
 }
 
+function showSyncBanner(text, step = '') {
+  const b = document.getElementById('sync-loading-banner');
+  const t = document.getElementById('sync-banner-text');
+  const s = document.getElementById('sync-banner-step');
+  if (!b) return;
+  b.style.display = 'flex';
+  if (t) t.textContent = text;
+  if (s) s.textContent = step;
+  lucide.createIcons({ nodes: [b] });
+}
+function hideSyncBanner() {
+  const b = document.getElementById('sync-loading-banner');
+  if (b) b.style.display = 'none';
+}
+
 async function syncToSheets(silent = false) {
-  const url = GS_URL || localStorage.getItem('massin_gs_url') || '';
+  const url = localStorage.getItem('massin_gs_url') || GS_URL || '';
   if (!url) {
-    if (!silent) showToast('URL Apps Script non configurée. Allez dans Paramètres.', 'error');
+    showToast('URL Apps Script non configurée — allez dans Paramètres.', 'error');
     return;
   }
+  showSyncBanner('Sauvegarde vers Google Sheets…', `${fmtNum(clients.length)} clients`);
   setSyncBadgeLoading(true);
   try {
-    // ⚠️ GAS bloque application/json (déclenche un preflight CORS rejeté)
-    // Solution : envoyer en text/plain — GAS reçoit quand même le JSON dans e.postData.contents
+    showSyncBanner('Envoi des données…', 'Connexion à Apps Script');
     const res = await fetch(url, {
       method: 'POST',
       mode: 'cors',
@@ -1857,51 +1885,65 @@ async function syncToSheets(silent = false) {
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ action: 'sync', clients, purchases })
     });
+    showSyncBanner('Envoi des données…', 'Traitement par Apps Script');
+    if (!res.ok) throw new Error(`HTTP ${res.status} — ${res.statusText}`);
     const data = await res.json();
     if (data.error) throw new Error(data.error);
-    const now = new Date().toISOString();
-    localStorage.setItem('massin_gs_synced_at', now);
-    if (!silent) showToast(`✅ Synchronisé — ${clients.length} clients, ${purchases.length} achats.`, 'success');
+    localStorage.setItem('massin_gs_synced_at', new Date().toISOString());
+    if (!silent) showToast(`✅ ${fmtNum(clients.length)} clients sauvegardés dans Google Sheets.`, 'success');
     initSettingsView();
     updateSyncBadge();
   } catch(e) {
-    if (!silent) showToast('Erreur de synchronisation : ' + e.message, 'error');
-    else {
-      const badge = document.getElementById('sync-badge');
-      if (badge) { badge.className = 'sync-badge err'; badge.querySelector('i').setAttribute('data-lucide','cloud-off'); lucide.createIcons({nodes:[badge]}); }
-    }
+    const msg = `Erreur sync : ${e.message}`;
+    if (!silent) showToast(msg, 'error');
+    console.error('[syncToSheets]', e);
+    // Afficher l'erreur dans le panneau Paramètres
+    const gsSync = document.getElementById('gs-last-sync');
+    if (gsSync) gsSync.innerHTML = `<span style="color:var(--color-error)">⚠️ ${msg}</span>`;
   } finally {
+    hideSyncBanner();
     setSyncBadgeLoading(false);
   }
 }
 
 async function loadFromSheets() {
-  const url = GS_URL || localStorage.getItem('massin_gs_url') || '';
-  if (!url) { showToast('URL Apps Script non configurée. Allez dans Paramètres.', 'error'); return; }
+  const url = localStorage.getItem('massin_gs_url') || GS_URL || '';
+  if (!url) {
+    showToast('URL Apps Script non configurée — allez dans Paramètres.', 'error');
+    return;
+  }
+  showSyncBanner('Chargement depuis Google Sheets…', 'Connexion en cours');
   setSyncBadgeLoading(true);
-  showToast('Chargement depuis Google Sheets…', 'info');
   try {
-    const res  = await fetch(url, { mode: 'cors', redirect: 'follow' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    showSyncBanner('Chargement depuis Google Sheets…', 'Lecture du Sheet');
+    const res = await fetch(url, { mode: 'cors', redirect: 'follow' });
+    if (!res.ok) throw new Error(`HTTP ${res.status} — ${res.statusText}`);
+
+    showSyncBanner('Chargement depuis Google Sheets…', 'Réception des données');
     const data = await res.json();
     if (data.error) throw new Error(data.error);
-    if (!Array.isArray(data.clients)) throw new Error('Format de données invalide');
+    if (!Array.isArray(data.clients)) throw new Error(`Format invalide — reçu: ${typeof data.clients}`);
 
+    showSyncBanner('Chargement depuis Google Sheets…', `${fmtNum(data.clients.length)} clients reçus — mise en mémoire`);
     clients   = data.clients;
     purchases = data.purchases || [];
-    // ⚡ PAS de recalcClientPoints() en boucle — totalPoints déjà calculé dans Sheets
-    // recalcClientPoints est O(n²) et gèle le navigateur sur 39 000+ clients
 
-    saveLocal(); // peut échouer silencieusement si > 5MB localStorage
+    saveLocal();
     localStorage.setItem('massin_gs_synced_at', new Date().toISOString());
+
+    showSyncBanner('Mise à jour de l\'affichage…', '');
     renderDashboard();
-    // renderClientsTable() non appelé ici — attendez d'ouvrir l'onglet Clients
     initSettingsView();
     updateSyncBadge();
-    showToast(`✅ ${fmtNum(clients.length)} clients et ${fmtNum(purchases.length)} achats chargés depuis Google Sheets.`, 'success');
+    showToast(`✅ ${fmtNum(clients.length)} clients et ${fmtNum(purchases.length)} achats chargés.`, 'success');
   } catch(e) {
-    showToast('Erreur de chargement : ' + e.message, 'error');
+    const msg = `Erreur chargement : ${e.message}`;
+    showToast(msg, 'error');
+    console.error('[loadFromSheets]', e);
+    const gsSync = document.getElementById('gs-last-sync');
+    if (gsSync) gsSync.innerHTML = `<span style="color:var(--color-error)">⚠️ ${msg}</span>`;
   } finally {
+    hideSyncBanner();
     setSyncBadgeLoading(false);
   }
 }
@@ -1935,12 +1977,12 @@ function copyAppsScript() {
 }
 
 function initSettingsView() {
-  // Local storage stats
+  // Stats localStorage
   const lsClients   = document.getElementById('ls-clients');
   const lsPurchases = document.getElementById('ls-purchases');
   const lsLastSave  = document.getElementById('ls-last-save');
-  if (lsClients)   lsClients.textContent   = clients.length;
-  if (lsPurchases) lsPurchases.textContent = purchases.length;
+  if (lsClients)   lsClients.textContent   = fmtNum(clients.length);
+  if (lsPurchases) lsPurchases.textContent = fmtNum(purchases.length);
   const savedAt = localStorage.getItem('massin_saved_at');
   if (lsLastSave) lsLastSave.textContent = savedAt
     ? `Dernière sauvegarde locale : ${new Date(savedAt).toLocaleString('fr-FR')}`
@@ -1957,11 +1999,11 @@ function initSettingsView() {
   const display = document.getElementById('apps-script-display');
   if (display) display.textContent = APPS_SCRIPT_CODE;
 
-  // GS URL input
+  // GS URL input + activer les boutons
   initGSUrl();
 
-  // JSON export
-  refreshJsonExport();
+  // ⚠️ NE PAS appeler refreshJsonExport() ici — JSON.stringify sur 40k clients bloque l'UI
+  // L'export JSON n'est déclenché que par le bouton "Actualiser" explicitement
   lucide.createIcons();
 }
 
