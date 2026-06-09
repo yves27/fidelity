@@ -1123,6 +1123,7 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
 let clients = [];
 let purchases = [];
 let selectedClientId = null;
+let _driveStats = null; // Stats agrégées chargées depuis Drive (mobile léger)
 
 // Barème points montant
 const AMOUNT_BRACKETS = [
@@ -1327,10 +1328,11 @@ function renderDashboard() {
 }
 
 function renderDashboardGlobal() {
-  const total    = clients.length;
-  const anciens  = clients.filter(c => c.type === 'ancien').length;
-  const nouveaux = total - anciens;
-  const totalPts = clients.reduce((s, c) => s + (c.totalPoints || 0), 0);
+  // Utilise les stats Drive (mobile) si la base complète n'est pas en mémoire
+  const total    = _driveStats ? _driveStats.total    : clients.length;
+  const anciens  = _driveStats ? _driveStats.anciens  : clients.filter(c => c.type === 'ancien').length;
+  const nouveaux = _driveStats ? _driveStats.nouveaux : total - anciens;
+  const totalPts = _driveStats ? _driveStats.totalPts : clients.reduce((s, c) => s + (c.totalPoints || 0), 0);
   const pct      = total > 0 ? Math.round(anciens / total * 100) : 0;
 
   if (total === 0) {
@@ -1364,12 +1366,16 @@ function renderDashboardGlobal() {
     return;
   }
 
-  // Tier counts — déclaré ICI, avant utilisation
-  const tierCounts = { Platine: 0, Or: 0, Argent: 0, Bronze: 0 };
-  clients.forEach(c => {
-    const t = getTier(c.totalPoints).name;
-    if (tierCounts[t] !== undefined) tierCounts[t]++;
-  });
+  // Tier counts — depuis Drive stats si dispo, sinon calculé
+  const tierCounts = _driveStats && _driveStats.tiers
+    ? { ..._driveStats.tiers }
+    : { Platine: 0, Or: 0, Argent: 0, Bronze: 0 };
+  if (!_driveStats) {
+    clients.forEach(c => {
+      const t = getTier(c.totalPoints).name;
+      if (tierCounts[t] !== undefined) tierCounts[t]++;
+    });
+  }
 
   // KPI grid
   document.getElementById('kpi-grid').innerHTML = `
@@ -1854,7 +1860,7 @@ function confirmClearLocal() {
   localStorage.removeItem('massin_purchases');
   localStorage.removeItem('massin_saved_at');
   localStorage.removeItem('massin_gs_synced_at');
-  clients = []; purchases = [];
+  clients = []; purchases = []; _driveStats = null;
   seedData();
   renderDashboard();
   renderClientsTable();
@@ -2172,13 +2178,29 @@ async function syncToSheets(silent = false) {
     return;
   }
 
+  // Format v4 : stats agrégées + actifs seulement → ≤ 100KB au lieu de 2MB
+  const tc4 = { Platine: 0, Or: 0, Argent: 0, Bronze: 0 };
+  clients.forEach(c => { const t = getTier(c.totalPoints).name; if (tc4[t] !== undefined) tc4[t]++; });
+  const payload4 = {
+    v: 4,
+    stats: {
+      total:    clients.length,
+      anciens:  clients.filter(c => c.type === 'ancien').length,
+      nouveaux: clients.filter(c => c.type === 'nouveau').length,
+      totalPts: clients.reduce((s, c) => s + (c.totalPoints || 0), 0),
+      tiers:    tc4
+    },
+    active:   minifyClients(toSync),
+    purchases: purchases,
+    savedAt:  new Date().toISOString()
+  };
+  const body = JSON.stringify({ action: 'sync', ...payload4 });
+  const kb   = Math.round(body.length / 1024);
   if (!silent) showSyncBanner('Sauvegarde vers Google Drive…',
-    `${fmtNum(toSync.length)} clients actifs`);
+    `${fmtNum(toSync.length)} actifs + stats — ${kb} KB`);
   setSyncBadgeLoading(true);
-  dbLog('info', `syncToSheets — ${toSync.length}/${clients.length} clients à syncer`);
+  dbLog('info', `syncToSheets v4 — ${toSync.length} actifs, ${kb} KB (au lieu de ~${Math.round(JSON.stringify(minifyClients(clients)).length/1024)} KB full)`);
   try {
-    const body = JSON.stringify({ action: 'sync', c: minifyClients(toSync), p: purchases, totalCount: clients.length, v: 2 });
-    dbLog('info', `Payload : ${Math.round(body.length/1024)} KB`);
     const res  = await dbFetch('SYNC_POST', url, {
       method: 'POST', mode: 'cors', redirect: 'follow',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body
@@ -2214,13 +2236,24 @@ async function loadFromSheets(silent = false) {
     dbLog('info', `Réponse : ${Math.round(text.length/1024)} KB`);
     const raw  = JSON.parse(text);
     if (raw.error) throw new Error(raw.error);
-    const data = raw.v === 2
-      ? { clients: expandClients(raw.c || []), purchases: raw.p || [] }
-      : { clients: raw.clients || [],          purchases: raw.purchases || [] };
-    if (!Array.isArray(data.clients)) throw new Error(`Format invalide — type: ${typeof data.clients}`);
-    clients   = data.clients;
-    purchases = data.purchases;
-    dbLog('ok', `Chargé : ${clients.length} clients, ${purchases.length} achats`);
+
+    if (raw.v === 4) {
+      // Format compact v4 : stats agrégées + actifs seulement
+      _driveStats = raw.stats || null;
+      clients     = expandClients(raw.active || []);
+      purchases   = raw.purchases || [];
+      dbLog('ok', `Chargé v4 : ${_driveStats ? _driveStats.total : '?'} clients total, ${clients.length} actifs, ${purchases.length} achats`);
+    } else {
+      // Format classique v1/v2/v3 : liste complète
+      _driveStats = null;
+      const data  = raw.v >= 2
+        ? { clients: expandClients(raw.c || []), purchases: raw.p || [] }
+        : { clients: raw.clients || [],          purchases: raw.purchases || [] };
+      if (!Array.isArray(data.clients)) throw new Error(`Format invalide — type: ${typeof data.clients}`);
+      clients   = data.clients;
+      purchases = data.purchases;
+      dbLog('ok', `Chargé v${raw.v||1} : ${clients.length} clients, ${purchases.length} achats`);
+    }
     saveLocal();
     localStorage.setItem('massin_gs_synced_at', new Date().toISOString());
     renderDashboard();
