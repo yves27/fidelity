@@ -880,85 +880,65 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
         </div>
       </div>
 
-      <!-- CARTE GOOGLE SHEETS -->
+      <!-- CARTE SUPABASE -->
       <div class="card">
-        <div class="card-title"><i data-lucide="table-2"></i> Google Sheets (cloud)</div>
-        <div class="alert alert-info" style="margin-bottom:var(--space-4);">
-          <i data-lucide="info"></i>
-          <div>Connectez un Google Sheet comme base de données cloud. Déployez d'abord l'Apps Script (voir ci-dessous), puis collez l'URL ici.</div>
+        <div class="card-title"><i data-lucide="database"></i> Supabase (cloud — recommandé)</div>
+        <div class="alert alert-success" style="margin-bottom:var(--space-4);">
+          <i data-lucide="check-circle"></i>
+          <div><strong>Fonctionne depuis Madagascar</strong> — REST API natif, CORS parfait, aucun cold start.</div>
         </div>
         <div class="form-group">
-          <label class="form-label">URL Apps Script (Web App)</label>
-          <input type="url" class="form-input" id="gs-url-input" placeholder="https://script.google.com/macros/s/…/exec" oninput="gsUrlChanged()">
-          <span class="form-hint">Copiez l'URL de déploiement depuis Apps Script</span>
+          <label class="form-label">URL du projet Supabase</label>
+          <input type="url" class="form-input" id="supa-url-input" placeholder="https://xxxxxxxxxxxx.supabase.co" oninput="supaInputChanged()">
         </div>
-        <div class="flex-gap" style="margin-bottom:var(--space-3);">
-          <button class="btn btn-secondary btn-sm" onclick="testRawFetch()">
-            <i data-lucide="radio"></i> Test connexion brute
-          </button>
-          <button class="btn btn-secondary btn-sm" onclick="testGSConnection()">
-            <i data-lucide="zap"></i> Tester la connexion
-          </button>
-          <button class="btn btn-primary btn-sm" onclick="saveGSConfig()">
-            <i data-lucide="save"></i> Enregistrer l'URL
-          </button>
+        <div class="form-group">
+          <label class="form-label">Clé anonyme (anon key)</label>
+          <input type="text" class="form-input" id="supa-key-input" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…" oninput="supaInputChanged()">
+          <span class="form-hint">Paramètres projet → API → Project API keys → anon public</span>
         </div>
-        <div id="gs-test-result"></div>
+        <div class="flex-gap" style="margin-bottom:var(--space-3);flex-wrap:wrap;">
+          <button class="btn btn-secondary btn-sm" onclick="testSupabase()"><i data-lucide="zap"></i> Tester</button>
+          <button class="btn btn-primary btn-sm" onclick="saveSupaConfig()"><i data-lucide="save"></i> Enregistrer</button>
+        </div>
+        <div id="supa-test-result"></div>
         <div class="divider"></div>
-        <div class="flex-gap" style="justify-content:space-between; flex-wrap:wrap;">
-          <button class="btn btn-secondary btn-sm" onclick="loadFromSheets()" id="btn-load-sheets">
-            <i data-lucide="cloud-download"></i> Charger depuis Sheets
+        <div class="flex-gap" style="justify-content:space-between;flex-wrap:wrap;">
+          <button class="btn btn-secondary btn-sm" onclick="loadFromSupabase()" id="btn-load-supa">
+            <i data-lucide="cloud-download"></i> Charger depuis Supabase
           </button>
-          <button class="btn btn-success btn-sm" onclick="syncToSheets()" id="btn-sync-sheets">
-            <i data-lucide="cloud-upload"></i> Sauvegarder actifs
-          </button>
-        </div>
-        <div style="margin-top:var(--space-3);">
-          <button class="btn btn-primary" style="width:100%;" onclick="downloadForDrive()">
-            <i data-lucide="file-down"></i> Télécharger le fichier Drive (upload manuel)
-          </button>
-          <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-1);text-align:center;">
-            Méthode fiable pour grandes bases · Uploadez ensuite dans Google Drive
-          </div>
-        </div>
-        <div style="margin-top:var(--space-3);">
-          <button class="btn btn-secondary" style="width:100%;opacity:0.7;" onclick="syncAllToSheets()">
-            <i data-lucide="database"></i> Sync complet automatique (lent sur connexion faible)
+          <button class="btn btn-success btn-sm" onclick="syncToSupabase()" id="btn-sync-supa">
+            <i data-lucide="cloud-upload"></i> Sauvegarder vers Supabase
           </button>
         </div>
-        <div id="gs-last-sync" style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-3);"></div>
+        <div id="supa-last-sync" style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-3);"></div>
       </div>
     </div>
 
-    <!-- GUIDE D'INSTALLATION APPS SCRIPT -->
+    <!-- GUIDE SUPABASE -->
     <div class="card mb-6">
-      <div class="card-title"><i data-lucide="book-open"></i> Guide d'installation — Google Apps Script</div>
+      <div class="card-title"><i data-lucide="book-open"></i> Guide d'installation — Supabase (5 minutes)</div>
       <div class="grid-2 mt-4" style="gap:var(--space-6);">
         <div>
-          <div style="font-size:var(--text-sm);font-weight:700;margin-bottom:var(--space-4);">📋 Étapes à suivre</div>
+          <div style="font-size:var(--text-sm);font-weight:700;margin-bottom:var(--space-4);">📋 Étapes</div>
           <div class="step-list">
-            <div class="step-item"><div class="step-num">1</div><div class="step-content">Ouvrez <strong>Google Sheets</strong> et créez un nouveau classeur nommé <strong>"Mass'In Fidélité"</strong>. Laissez-le vide, le script créera les feuilles automatiquement.</div></div>
-            <div class="step-item"><div class="step-num">2</div><div class="step-content">Dans le menu Sheets : <strong>Extensions → Apps Script</strong>. Un éditeur de code s'ouvre.</div></div>
-            <div class="step-item"><div class="step-num">3</div><div class="step-content">Supprimez le code existant, puis <strong>collez intégralement le code</strong> ci-contre (bouton "Copier le code").</div></div>
-            <div class="step-item"><div class="step-num">4</div><div class="step-content">Cliquez sur <strong>Déployer → Nouveau déploiement</strong>. Type : <em>Application Web</em>. Exécuter en tant que : <em>Moi</em>. Accès : <em>Toute personne</em>.</div></div>
-            <div class="step-item"><div class="step-num">5</div><div class="step-content">Cliquez <strong>Déployer</strong>, autorisez les permissions, puis <strong>copiez l'URL</strong> de type <code>…/exec</code> et collez-la dans le champ ci-dessus.</div></div>
-            <div class="step-item"><div class="step-num">6</div><div class="step-content">Cliquez <strong>"Tester la connexion"</strong> pour valider, puis <strong>"Sauvegarder vers Sheets"</strong> pour envoyer vos données actuelles.</div></div>
-          </div>
-          <div class="alert alert-warning mt-4" style="margin-bottom:0;">
-            <i data-lucide="alert-triangle"></i>
-            <div><strong>Note :</strong> Si l'app est ouverte en <code>file://</code>, servez-la via un serveur local : <code>python -m http.server 8080</code> puis ouvrez <code>http://localhost:8080</code>.</div>
+            <div class="step-item"><div class="step-num">1</div><div class="step-content">Allez sur <strong>supabase.com</strong> → créez un compte gratuit → <strong>New project</strong> (choisissez la région la plus proche).</div></div>
+            <div class="step-item"><div class="step-num">2</div><div class="step-content">Dans votre projet : menu gauche → <strong>SQL Editor</strong> → collez et exécutez le schéma SQL ci-contre (bouton "Copier le SQL").</div></div>
+            <div class="step-item"><div class="step-num">3</div><div class="step-content">Menu gauche → <strong>Project Settings → API</strong> → copiez <strong>Project URL</strong> et <strong>anon public key</strong>.</div></div>
+            <div class="step-item"><div class="step-num">4</div><div class="step-content">Collez-les dans les champs ci-dessus → <strong>Enregistrer</strong> → <strong>Tester la connexion</strong>.</div></div>
+            <div class="step-item"><div class="step-num">5</div><div class="step-content">Importez votre fichier XLSX comme d'habitude — les données seront automatiquement envoyées vers Supabase.</div></div>
           </div>
         </div>
         <div>
           <div class="flex-between mb-4">
-            <div style="font-size:var(--text-sm);font-weight:700;">📄 Code Apps Script (Code.gs)</div>
-            <button class="btn btn-secondary btn-sm" onclick="copyAppsScript()"><i data-lucide="copy"></i> Copier le code</button>
+            <div style="font-size:var(--text-sm);font-weight:700;">📄 Schéma SQL à exécuter</div>
+            <button class="btn btn-secondary btn-sm" onclick="copySQLSchema()"><i data-lucide="copy"></i> Copier le SQL</button>
           </div>
-          <div class="code-block" id="apps-script-display"></div>
+          <div class="code-block" id="sql-schema-display"></div>
         </div>
       </div>
     </div>
 
+    <!-- EXPORT/IMPORT JSON -->
     <!-- EXPORT/IMPORT JSON -->
     <div class="card">
       <div class="card-title"><i data-lucide="file-json"></i> Sauvegarde manuelle JSON</div>
@@ -1337,7 +1317,7 @@ function renderDashboardGlobal() {
 
   if (total === 0) {
     // Aucune donnée — afficher un CTA visible pour charger
-    const gsConfigured = !!(localStorage.getItem('massin_gs_url') || DEFAULT_GS_URL);
+    const gsConfigured = !!(localStorage.getItem('supa_url') && localStorage.getItem('supa_key'));
     document.getElementById('kpi-grid').innerHTML = '';
     document.getElementById('tier-distribution').innerHTML = `
       <div class="card" style="text-align:center;padding:var(--space-12);">
@@ -1349,7 +1329,7 @@ function renderDashboardGlobal() {
             : 'Importez un fichier CSV/XLSX ou configurez Google Drive dans Paramètres.'}
         </div>
         ${gsConfigured ? `
-          <button class="btn btn-primary" style="font-size:1rem;padding:var(--space-3) var(--space-8);" onclick="loadFromSheets(false)">
+          <button class="btn btn-primary" style="font-size:1rem;padding:var(--space-3) var(--space-8);" onclick="loadFromSupabase(false)">
             <i data-lucide="cloud-download"></i> Charger les données depuis Drive
           </button>` : `
           <div class="flex-gap" style="justify-content:center;flex-wrap:wrap;">
@@ -1835,9 +1815,9 @@ function autoSync() {
   const url = localStorage.getItem('massin_gs_url');
   if (!url) return;
   // Base trop grande → pas d'auto-sync (utiliser le bouton manuel dans Paramètres)
-  if (clients.length > 1000) return;
+  if (clients.length > 5000) return;
   clearTimeout(_autoSyncTimer);
-  _autoSyncTimer = setTimeout(() => syncToSheets(true), 3000);
+  _autoSyncTimer = setTimeout(() => syncToSupabase(true), 3000);
 }
 
 function loadLocal() {
@@ -1873,9 +1853,9 @@ function updateSyncBadge() {
   const text  = document.getElementById('sync-badge-text');
   if (!badge) return;
   badge.style.display = '';
-  const syncedAt = localStorage.getItem('massin_gs_synced_at');
+  const syncedAt = localStorage.getItem('supa_synced_at');
   const savedAt  = localStorage.getItem('massin_saved_at');
-  const gsUrl    = localStorage.getItem('massin_gs_url');
+  const gsUrl    = localStorage.getItem('supa_url');
   if (!gsUrl) {
     badge.className = 'sync-badge warn';
     badge.querySelector('i').setAttribute('data-lucide', 'hard-drive');
@@ -1893,483 +1873,188 @@ function updateSyncBadge() {
   lucide.createIcons({ nodes: [badge] });
 }
 
-// ===================== GOOGLE SHEETS SYNC =====================
-// URL Apps Script embarquée — fonctionne sur tous les appareils sans configuration
-// Remplacez cette valeur si vous changez de déploiement Apps Script
-const DEFAULT_GS_URL = 'https://script.google.com/macros/s/AKfycbwJwJ2tEJkoI4L3scgqC3hXfmC4PldcBb47p0W8QAX4eOPwZaFI7qfKOEZU04Bkh-7p/exec';
+// ===================== SUPABASE SYNC =====================
+const SQL_SCHEMA = `-- Collez ce code dans Supabase → SQL Editor → Run
+CREATE TABLE IF NOT EXISTS clients (
+  id BIGINT PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT DEFAULT '',
+  phone TEXT DEFAULT '',
+  type TEXT DEFAULT 'nouveau',
+  historical_points INT DEFAULT 0,
+  historical_pts_freq INT DEFAULT 0,
+  pts_amount INT DEFAULT 0,
+  pts_freq INT DEFAULT 0,
+  total_points INT DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS purchases (
+  id BIGINT PRIMARY KEY,
+  client_id BIGINT REFERENCES clients(id) ON DELETE CASCADE,
+  amount BIGINT NOT NULL,
+  date DATE NOT NULL
+);
+ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
+ALTER TABLE purchases ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public" ON clients FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Public" ON purchases FOR ALL USING (true) WITH CHECK (true);`;
 
-let GS_URL = '';
+let SUPA_URL = localStorage.getItem('supa_url') || '';
+let SUPA_KEY = localStorage.getItem('supa_key') || '';
 
-const APPS_SCRIPT_CODE = `// ================================================
-// Mass'In Fidélité — Apps Script v4 (Code.gs)
-// Stockage : fichier JSON dans Google Drive
-// Format compressé v2 pour réduire la bande passante
-// ================================================
+// Wrapper API Supabase — REST direct, CORS natif, pas de cold start
+async function supaFetch(path, opts = {}) {
+  if (!SUPA_URL || !SUPA_KEY) throw new Error('Supabase non configuré');
+  const headers = {
+    'apikey': SUPA_KEY,
+    'Authorization': 'Bearer ' + SUPA_KEY,
+    'Content-Type': 'application/json',
+    ...(opts.headers || {})
+  };
+  const res = await fetch(SUPA_URL + '/rest/v1/' + path, { ...opts, headers });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || err.hint || 'HTTP ' + res.status);
+  }
+  return res.status === 204 ? null : res.json();
+}
 
-const FILE_NAME = "massin_fidelite_data.json";
+function clientToDB(c) {
+  return { id: c.id, name: c.name, email: c.email || null, phone: c.phone || null,
+    type: c.type, historical_points: c.historicalPoints || 0,
+    historical_pts_freq: c.historicalPtsFreq || 0,
+    pts_amount: c.ptsAmount || 0, pts_freq: c.ptsFreq || 0, total_points: c.totalPoints || 0 };
+}
+function clientFromDB(r) {
+  return { id: r.id, name: r.name, email: r.email || '', phone: r.phone || '',
+    type: r.type, historicalPoints: r.historical_points || 0,
+    historicalPtsFreq: r.historical_pts_freq || 0,
+    ptsAmount: r.pts_amount || 0, ptsFreq: r.pts_freq || 0, totalPoints: r.total_points || 0 };
+}
 
-function doGet(e) {
+async function loadFromSupabase(silent = false) {
+  if (!SUPA_URL || !SUPA_KEY) {
+    if (!silent) showToast('Configurez Supabase dans Paramètres.', 'error'); return false;
+  }
+  if (!silent) showSyncBanner('Chargement depuis Supabase…', 'connexion');
+  setSyncBadgeLoading(true);
+  dbLog('info', 'loadFromSupabase démarré');
   try {
-    const files = DriveApp.getFilesByName(FILE_NAME);
-    if (!files.hasNext()) {
-      return respond({ clients: [], purchases: [], info: "Premier démarrage" });
+    const PAGE = 1000;
+    let allClients = [], page = 0;
+    while (true) {
+      const rows = await supaFetch(
+        'clients?select=*&order=total_points.desc&offset=' + (page * PAGE) + '&limit=' + PAGE
+      );
+      allClients = allClients.concat(rows.map(clientFromDB));
+      if (!silent) showSyncBanner('Chargement…', fmtNum(allClients.length) + ' clients');
+      if (rows.length < PAGE) break;
+      page++;
     }
-    return respond(JSON.parse(files.next().getBlob().getDataAsString()));
-  } catch(err) {
-    return respond({ error: err.toString() });
-  }
+    const pRows = await supaFetch('purchases?select=*&order=date.desc&limit=50000');
+    clients   = allClients;
+    purchases = pRows.map(p => ({ id: p.id, clientId: p.client_id, amount: p.amount, date: p.date }));
+    _driveStats = null;
+    dbLog('ok', 'Chargé : ' + clients.length + ' clients, ' + purchases.length + ' achats');
+    saveLocal();
+    localStorage.setItem('supa_synced_at', new Date().toISOString());
+    renderDashboard(); initSettingsView(); updateSyncBadge();
+    if (!silent) showToast('✅ ' + fmtNum(clients.length) + ' clients chargés.', 'success');
+    return true;
+  } catch(e) {
+    dbLog('err', 'loadFromSupabase : ' + e.message);
+    if (!silent) showToast('Erreur : ' + e.message, 'error');
+    return false;
+  } finally { hideSyncBanner(); setSyncBadgeLoading(false); }
 }
 
-function doPost(e) {
+async function syncToSupabase(silent = false) {
+  if (!SUPA_URL || !SUPA_KEY) {
+    if (!silent) showToast('Configurez Supabase dans Paramètres.', 'error'); return;
+  }
+  if (clients.length === 0) {
+    if (!silent) showToast('Aucune donnée à sauvegarder.', 'error'); return;
+  }
+  const BATCH = 500;
+  if (!silent) showSyncBanner('Sauvegarde vers Supabase…', fmtNum(clients.length) + ' clients');
+  setSyncBadgeLoading(true);
+  dbLog('info', 'syncToSupabase — ' + clients.length + ' clients, ' + purchases.length + ' achats');
   try {
-    const raw  = e.postData ? e.postData.contents : "{}";
-    const data = JSON.parse(raw);
-    if (data.action === "ping") return respond({ pong: true });
-    if (data.action !== "sync") return respond({ error: "Action inconnue" });
-
-    // Compatible format compressé (v:2) et format classique
-    const payload = {
-      v:       data.v || 1,
-      c:       data.c || data.clients   || [],   // clients compressés ou classiques
-      p:       data.p || data.purchases || [],   // achats
-      savedAt: new Date().toISOString()
-    };
-    const json  = JSON.stringify(payload);
-    const files = DriveApp.getFilesByName(FILE_NAME);
-    if (files.hasNext()) {
-      files.next().setContent(json);
-    } else {
-      DriveApp.createFile(FILE_NAME, json, MimeType.PLAIN_TEXT);
+    for (let i = 0; i < clients.length; i += BATCH) {
+      const batch = clients.slice(i, i + BATCH).map(clientToDB);
+      await supaFetch('clients', {
+        method: 'POST',
+        headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify(batch)
+      });
+      if (!silent) showSyncBanner('Sauvegarde…', fmtNum(i + batch.length) + '/' + fmtNum(clients.length));
     }
-    return respond({ ok: true, savedAt: payload.savedAt, count: payload.c.length });
-  } catch(err) {
-    return respond({ error: err.toString() });
+    if (purchases.length > 0) {
+      for (let i = 0; i < purchases.length; i += BATCH) {
+        const batch = purchases.slice(i, i + BATCH).map(p =>
+          ({ id: p.id, client_id: p.clientId, amount: p.amount, date: p.date }));
+        await supaFetch('purchases', {
+          method: 'POST',
+          headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+          body: JSON.stringify(batch)
+        });
+      }
+    }
+    localStorage.setItem('supa_synced_at', new Date().toISOString());
+    dbLog('ok', 'Sync OK — ' + clients.length + ' clients');
+    if (!silent) showToast('✅ ' + fmtNum(clients.length) + ' clients sauvegardés.', 'success');
+    initSettingsView(); updateSyncBadge();
+  } catch(e) {
+    dbLog('err', 'syncToSupabase : ' + e.message);
+    if (!silent) showToast('Erreur : ' + e.message, 'error');
+  } finally { hideSyncBanner(); setSyncBadgeLoading(false); }
+}
+
+async function testSupabase() {
+  const url = document.getElementById('supa-url-input').value.trim();
+  const key = document.getElementById('supa-key-input').value.trim();
+  const el  = document.getElementById('supa-test-result');
+  if (!url || !key) { showToast('Renseignez URL et clé.', 'error'); return; }
+  el.innerHTML = '<div class="gs-status-row"><i data-lucide="loader"></i> Test en cours…</div>';
+  lucide.createIcons({ nodes: [el] });
+  const t0 = Date.now();
+  try {
+    const res = await fetch(url + '/rest/v1/clients?select=count&limit=1', {
+      headers: { 'apikey': key, 'Authorization': 'Bearer ' + key }
+    });
+    const ms  = Date.now() - t0;
+    if (!res.ok) throw new Error('HTTP ' + res.status + ' — vérifiez URL et clé');
+    const data = await res.json();
+    el.innerHTML = '<div class="gs-status-row" style="color:var(--color-success);">' +
+      '<i data-lucide="check-circle"></i><div><strong>Connexion réussie !</strong> ' + ms + 'ms</div></div>';
+    dbLog('ok', 'Supabase test OK en ' + ms + 'ms');
+  } catch(e) {
+    el.innerHTML = '<div class="gs-status-row" style="color:var(--color-error);">' +
+      '<i data-lucide="x-circle"></i><div><strong>Erreur :</strong> ' + e.message + '</div></div>';
+    dbLog('err', 'Supabase test : ' + e.message);
   }
+  lucide.createIcons({ nodes: [el] });
 }
 
-function respond(data) {
-  const out = ContentService.createTextOutput(JSON.stringify(data));
-  out.setMimeType(ContentService.MimeType.JSON);
-  return out;
-}
+function supaInputChanged() { }
 
-// Optionnel : lancez cette fonction UNE FOIS pour autoriser Drive
-function autoriserDrive() {
-  DriveApp.getRootFolder();
-  Logger.log("✅ Accès Google Drive autorisé !");
-}`;
-
-function initGSUrl() {
-  GS_URL = localStorage.getItem('massin_gs_url') || '';
-  const input = document.getElementById('gs-url-input');
-  if (input) input.value = GS_URL;
-  toggleSheetButtons();
-}
-
-function gsUrlChanged() {
-  const val = document.getElementById('gs-url-input').value.trim();
-  const testResult = document.getElementById('gs-test-result');
-  if (testResult) testResult.innerHTML = '';
-  toggleSheetButtons();
-}
-
-function saveGSConfig() {
-  const url = document.getElementById('gs-url-input').value.trim();
-  if (url && !url.startsWith('https://script.google.com')) {
-    showToast("L'URL doit commencer par https://script.google.com", 'error');
-    return;
-  }
-  GS_URL = url;
-  if (url) {
-    localStorage.setItem('massin_gs_url', url);
-    showToast('URL Apps Script enregistrée.', 'success');
-  } else {
-    localStorage.removeItem('massin_gs_url');
-    showToast("URL supprimée — synchronisation désactivée.", 'info');
-  }
-  toggleSheetButtons();
+function saveSupaConfig() {
+  const url = document.getElementById('supa-url-input').value.trim();
+  const key = document.getElementById('supa-key-input').value.trim();
+  if (!url || !key) { showToast('Renseignez les deux champs.', 'error'); return; }
+  SUPA_URL = url; SUPA_KEY = key;
+  localStorage.setItem('supa_url', url);
+  localStorage.setItem('supa_key', key);
+  showToast('Configuration Supabase enregistrée.', 'success');
   updateSyncBadge();
 }
 
-function toggleSheetButtons() {
-  const url = (document.getElementById('gs-url-input')?.value || '').trim();
-  const ok  = url.startsWith('https://script.google.com');
-  ['btn-load-sheets', 'btn-sync-sheets'].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    // Ne jamais désactiver — la fonction elle-même vérifie l'URL
-    el.style.opacity = ok ? '1' : '0.5';
-    el.title = ok ? '' : 'Enregistrez d\'abord une URL Apps Script valide';
-  });
+function copySQLSchema() {
+  navigator.clipboard.writeText(SQL_SCHEMA)
+    .then(() => showToast('SQL copié !', 'success'))
+    .catch(() => { const ta = document.createElement('textarea'); ta.value = SQL_SCHEMA; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); showToast('SQL copié !', 'success'); });
 }
 
-// Test ultra-simple — aucun wrapper, fetch brut
-async function testRawFetch() {
-  const url = localStorage.getItem('massin_gs_url') || DEFAULT_GS_URL || '';
-  const el  = document.getElementById('gs-test-result');
-  if (!url) { showToast('Aucune URL configurée.', 'error'); return; }
-  if (el) el.innerHTML = `<div class="gs-status-row" style="color:var(--color-text-muted);"><i data-lucide="loader"></i> Fetch brut en cours…</div>`;
-  lucide.createIcons({ nodes: [el] });
-  dbLog('info', 'testRawFetch → ' + url.substring(0, 60));
-  const t0 = Date.now();
-  try {
-    const res  = await fetch(url); // sans aucune option
-    const text = await res.text();
-    const ms   = Date.now() - t0;
-    dbLog('ok', `Fetch brut OK : ${res.status} en ${ms}ms, ${text.length} chars`);
-    const preview = text.substring(0, 120);
-    if (el) el.innerHTML = `<div class="gs-status-row" style="color:var(--color-success);">
-      <i data-lucide="check-circle"></i>
-      <div><strong>Fetch brut OK</strong> — ${res.status} en ${ms}ms<br>
-      <span style="font-size:0.75rem;opacity:0.8;">${preview}</span></div></div>`;
-  } catch(e) {
-    const ms = Date.now() - t0;
-    dbLog('err', `Fetch brut échoué après ${ms}ms : ${e.message}`);
-    if (el) el.innerHTML = `<div class="gs-status-row" style="color:var(--color-error);">
-      <i data-lucide="x-circle"></i>
-      <div><strong>Erreur fetch brut</strong> : ${e.message}</div></div>`;
-  }
-  lucide.createIcons({ nodes: [el] });
-}
-
-async function testGSConnection() {
-  const url = document.getElementById('gs-url-input').value.trim();
-  const resultDiv = document.getElementById('gs-test-result');
-  if (!url) { showToast('Veuillez saisir une URL.', 'error'); return; }
-  resultDiv.innerHTML = `<div class="gs-status-row" style="color:var(--color-text-muted);">
-    <i data-lucide="loader"></i> Test en cours…</div>`;
-  lucide.createIcons({ nodes: [resultDiv] });
-  try {
-    const res = await fetch(url, { mode: 'cors', redirect: 'follow' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
-    const cLen = (data.clients   || []).length;
-    const pLen = (data.purchases || []).length;
-    resultDiv.innerHTML = `<div class="gs-status-row" style="color:var(--color-success);">
-      <i data-lucide="check-circle"></i>
-      <div><strong>Connexion réussie !</strong> ${cLen} client(s) et ${pLen} achat(s) trouvé(s) dans le Sheet.</div></div>`;
-    lucide.createIcons({ nodes: [resultDiv] });
-  } catch(e) {
-    resultDiv.innerHTML = `<div class="gs-status-row" style="color:var(--color-error);">
-      <i data-lucide="x-circle"></i>
-      <div><strong>Erreur :</strong> ${e.message}.<br>
-      <span style="font-size:var(--text-xs);opacity:0.8;">Vérifiez que l'URL est correcte et que le déploiement autorise "Toute personne". Si vous utilisez file://, servez l'app via <code>python -m http.server 8080</code>.</span></div></div>`;
-    lucide.createIcons({ nodes: [resultDiv] });
-  }
-}
-
-// Verrou : une seule opération Drive à la fois
-let _syncLock = false;
-let _syncLockTimer = null;
-
-function _acquireLock(label) {
-  if (_syncLock) {
-    dbLog('warn', `${label} bloqué — verrou actif (sera libéré auto dans 5s)`);
-    showToast('Opération en cours, attendez…', 'info');
-    return false;
-  }
-  _syncLock = true;
-  // Libération automatique de sécurité après 65s (évite le blocage permanent)
-  _syncLockTimer = setTimeout(() => { _syncLock = false; }, 65000);
-  return true;
-}
-function _releaseLock() {
-  clearTimeout(_syncLockTimer);
-  _syncLock = false;
-}
-
-function showSyncBanner(text, step = '') {
-  const b = document.getElementById('sync-loading-banner');
-  const t = document.getElementById('sync-banner-text');
-  const s = document.getElementById('sync-banner-step');
-  if (!b) return;
-  b.style.display = 'flex';
-  if (t) t.textContent = text;
-  if (s) s.textContent = step;
-  lucide.createIcons({ nodes: [b] });
-}
-function hideSyncBanner() {
-  const b = document.getElementById('sync-loading-banner');
-  if (b) b.style.display = 'none';
-}
-
-// Sync COMPLET : envoie TOUS les clients (base historique incluse)
-// À faire une fois depuis le PC pour rendre les données accessibles sur mobile
-// Télécharge le fichier JSON au format exact attendu par Apps Script
-// L'utilisateur l'uploade ensuite manuellement dans Google Drive
-function downloadForDrive() {
-  if (clients.length === 0) {
-    showToast('Aucune donnée — importez d\'abord un fichier.', 'error');
-    return;
-  }
-  // Format v4 compact : stats agrégées + actifs seulement → ~5KB typiquement
-  const tc = { Platine: 0, Or: 0, Argent: 0, Bronze: 0 };
-  clients.forEach(c => { const t = getTier(c.totalPoints).name; if (tc[t] !== undefined) tc[t]++; });
-  const activeClients = clients.filter(c => (c.ptsAmount||0) > 0 || (c.ptsFreq||0) > 0 || c.type === 'nouveau');
-
-  const payload = {
-    v: 4,
-    stats: {
-      total:    clients.length,
-      anciens:  clients.filter(c => c.type === 'ancien').length,
-      nouveaux: clients.filter(c => c.type === 'nouveau').length,
-      totalPts: clients.reduce((s, c) => s + (c.totalPoints||0), 0),
-      tiers:    tc
-    },
-    active:   minifyClients(activeClients),
-    purchases: purchases,
-    savedAt:  new Date().toISOString()
-  };
-  const json = JSON.stringify(payload);
-  const kb   = Math.round(json.length / 1024);
-  const blob = new Blob([json], { type: 'application/json' });
-  const a    = document.createElement('a');
-  a.href     = URL.createObjectURL(blob);
-  a.download = 'massin_fidelite_data.json';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(a.href);
-  showToast(`Fichier téléchargé (${kb} KB) — uploadez-le dans Google Drive (remplacer l'existant).`, 'success');
-  dbLog('ok', `downloadForDrive v4 : ${clients.length} clients total, ${activeClients.length} actifs, ${kb} KB`);
-}
-
-async function syncAllToSheets() {
-  if (!_acquireLock('syncAllToSheets')) return;
-  const url = localStorage.getItem('massin_gs_url') || GS_URL || '';
-  if (!url) { _releaseLock(); showToast('URL Apps Script non configurée.', 'error'); return; }
-
-  if (clients.length === 0) {
-    _releaseLock();
-    showToast('Aucune donnée à sauvegarder — importez d\'abord un fichier.', 'error');
-    return;
-  }
-
-  const body    = JSON.stringify({ action: 'sync', c: minifyClients(clients), p: purchases, totalCount: clients.length, v: 2 });
-  const kb      = Math.round(body.length / 1024);
-  const secEst  = Math.round(kb / 100); // ~100KB/s estimation conservative
-  showSyncBanner('Sync complet vers Google Drive…', `${fmtNum(clients.length)} clients — ${kb} KB (~${secEst}s)`);
-  setSyncBadgeLoading(true);
-  dbLog('info', `syncAllToSheets — ${clients.length} clients, payload ${kb} KB`);
-
-  try {
-    const res  = await dbFetch('SYNC_ALL_POST', url, {
-      method: 'POST', mode: 'cors', redirect: 'follow',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body
-    }, 120000); // 2 minutes timeout pour le sync complet
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
-    dbLog('ok', `Sync complet OK — ${data.count} clients sur Drive`);
-    localStorage.setItem('massin_gs_synced_at', new Date().toISOString());
-    showToast(`✅ Sync complet : ${fmtNum(clients.length)} clients sur Drive. Mobile prêt !`, 'success');
-    initSettingsView(); updateSyncBadge();
-  } catch(e) {
-    dbLog('err', `syncAllToSheets : ${e.message}`);
-    showToast(`Erreur sync complet : ${e.message}`, 'error');
-  } finally { hideSyncBanner(); setSyncBadgeLoading(false); _releaseLock(); }
-}
-
-async function syncToSheets(silent = false) {
-  if (!_acquireLock('syncToSheets')) return;
-  const url = localStorage.getItem('massin_gs_url') || GS_URL || '';
-  if (!url) { _releaseLock(); showToast('URL Apps Script non configurée.', 'error'); return; }
-
-  // Sync intelligente : uniquement les clients ACTIFS (avec achats ou nouveaux)
-  const activeClients = clients.filter(c =>
-    (c.ptsAmount || 0) > 0 || (c.ptsFreq || 0) > 0 || c.type === 'nouveau'
-  );
-  const toSync = activeClients.length > 0 ? activeClients : clients.slice(0, 500);
-
-  // Sécurité : ne jamais écraser Drive avec 0 clients
-  if (toSync.length === 0) {
-    _releaseLock();
-    if (!silent) showToast('Aucune donnée à sauvegarder — importez d\'abord un fichier.', 'error');
-    dbLog('warn', 'syncToSheets annulé — 0 clients à envoyer');
-    return;
-  }
-
-  // Format v4 : stats agrégées + actifs seulement → ≤ 100KB au lieu de 2MB
-  const tc4 = { Platine: 0, Or: 0, Argent: 0, Bronze: 0 };
-  clients.forEach(c => { const t = getTier(c.totalPoints).name; if (tc4[t] !== undefined) tc4[t]++; });
-  const payload4 = {
-    v: 4,
-    stats: {
-      total:    clients.length,
-      anciens:  clients.filter(c => c.type === 'ancien').length,
-      nouveaux: clients.filter(c => c.type === 'nouveau').length,
-      totalPts: clients.reduce((s, c) => s + (c.totalPoints || 0), 0),
-      tiers:    tc4
-    },
-    active:   minifyClients(toSync),
-    purchases: purchases,
-    savedAt:  new Date().toISOString()
-  };
-  const body = JSON.stringify({ action: 'sync', ...payload4 });
-  const kb   = Math.round(body.length / 1024);
-  if (!silent) showSyncBanner('Sauvegarde vers Google Drive…',
-    `${fmtNum(toSync.length)} actifs + stats — ${kb} KB`);
-  setSyncBadgeLoading(true);
-  dbLog('info', `syncToSheets v4 — ${toSync.length} actifs, ${kb} KB (au lieu de ~${Math.round(JSON.stringify(minifyClients(clients)).length/1024)} KB full)`);
-  try {
-    const res  = await dbFetch('SYNC_POST', url, {
-      method: 'POST', mode: 'cors', redirect: 'follow',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body
-    }, 60000);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
-    dbLog('ok', `Sync OK — count: ${data.count}`);
-    localStorage.setItem('massin_gs_synced_at', new Date().toISOString());
-    if (!silent) showToast(`✅ ${fmtNum(toSync.length)} clients actifs sauvegardés.`, 'success');
-    initSettingsView(); updateSyncBadge();
-  } catch(e) {
-    dbLog('err', `syncToSheets : ${e.message}`);
-    if (!silent) showToast(`Erreur : ${e.message}`, 'error');
-  } finally { hideSyncBanner(); setSyncBadgeLoading(false); _releaseLock(); }
-}
-
-async function loadFromSheets(silent = false) {
-  console.log('[loadFromSheets] démarré, silent=', silent, 'lock=', _syncLock);
-  dbLog('info', `loadFromSheets appelé (silent=${silent}, lock=${_syncLock})`);
-  if (!_acquireLock('loadFromSheets')) return;
-  const url = localStorage.getItem('massin_gs_url') || GS_URL || '';
-  console.log('[loadFromSheets] URL=', url ? url.substring(0, 60) : 'VIDE');
-  if (!url) { _releaseLock(); if (!silent) showToast('URL Apps Script non configurée.', 'error'); return; }
-  if (!silent) showSyncBanner('Chargement depuis Google Drive…', 'Connexion en cours');
-  setSyncBadgeLoading(true);
-  dbLog('info', `URL OK, lancement du fetch`);
-  try {
-    const res  = await dbFetch('LOAD_GET', url, { mode: 'cors', redirect: 'follow' }, 60000);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    if (!silent) showSyncBanner('Chargement depuis Google Drive…', 'Traitement des données');
-    const text = await res.text();
-    dbLog('info', `Réponse : ${Math.round(text.length/1024)} KB`);
-    const raw  = JSON.parse(text);
-    if (raw.error) throw new Error(raw.error);
-
-    if (raw.v === 4) {
-      // Format compact v4 : stats agrégées + actifs seulement
-      _driveStats = raw.stats || null;
-      clients     = expandClients(raw.active || []);
-      purchases   = raw.purchases || [];
-      dbLog('ok', `Chargé v4 : ${_driveStats ? _driveStats.total : '?'} clients total, ${clients.length} actifs, ${purchases.length} achats`);
-    } else {
-      // Format classique v1/v2/v3 : liste complète
-      _driveStats = null;
-      const data  = raw.v >= 2
-        ? { clients: expandClients(raw.c || []), purchases: raw.p || [] }
-        : { clients: raw.clients || [],          purchases: raw.purchases || [] };
-      if (!Array.isArray(data.clients)) throw new Error(`Format invalide — type: ${typeof data.clients}`);
-      clients   = data.clients;
-      purchases = data.purchases;
-      dbLog('ok', `Chargé v${raw.v||1} : ${clients.length} clients, ${purchases.length} achats`);
-    }
-    saveLocal();
-    localStorage.setItem('massin_gs_synced_at', new Date().toISOString());
-    renderDashboard();
-    initSettingsView();
-    updateSyncBadge();
-    if (!silent) showToast(`✅ ${fmtNum(clients.length)} clients chargés.`, 'success');
-    else if (clients.length > 0) showToast(`✅ Données à jour — ${fmtNum(clients.length)} clients.`, 'success');
-  } catch(e) {
-    dbLog('err', `loadFromSheets : ${e.message}`);
-    if (!silent) showToast(`Erreur : ${e.message}`, 'error');
-  } finally { hideSyncBanner(); setSyncBadgeLoading(false); _releaseLock(); }
-}
-
-function setSyncBadgeLoading(on) {
-  const badge = document.getElementById('sync-badge');
-  if (!badge) return;
-  if (on) {
-    badge.className = 'sync-badge warn spin';
-    badge.querySelector('i').setAttribute('data-lucide', 'loader');
-    document.getElementById('sync-badge-text').textContent = 'Sync…';
-    lucide.createIcons({ nodes: [badge] });
-  } else {
-    badge.classList.remove('spin');
-    updateSyncBadge();
-  }
-}
-
-function copyAppsScript() {
-  navigator.clipboard.writeText(APPS_SCRIPT_CODE)
-    .then(() => showToast('Code Apps Script copié dans le presse-papier !', 'success'))
-    .catch(() => {
-      const el = document.createElement('textarea');
-      el.value = APPS_SCRIPT_CODE;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand('copy');
-      el.remove();
-      showToast('Code Apps Script copié !', 'success');
-    });
-}
-
-function initSettingsView() {
-  // Stats localStorage
-  const lsClients   = document.getElementById('ls-clients');
-  const lsPurchases = document.getElementById('ls-purchases');
-  const lsLastSave  = document.getElementById('ls-last-save');
-  if (lsClients)   lsClients.textContent   = fmtNum(clients.length);
-  if (lsPurchases) lsPurchases.textContent = fmtNum(purchases.length);
-  const savedAt = localStorage.getItem('massin_saved_at');
-  if (lsLastSave) lsLastSave.textContent = savedAt
-    ? `Dernière sauvegarde locale : ${new Date(savedAt).toLocaleString('fr-FR')}`
-    : 'Aucune sauvegarde locale enregistrée.';
-
-  // GS last sync
-  const gsLastSync = document.getElementById('gs-last-sync');
-  const syncedAt   = localStorage.getItem('massin_gs_synced_at');
-  if (gsLastSync) gsLastSync.textContent = syncedAt
-    ? `Dernière sync Sheets : ${new Date(syncedAt).toLocaleString('fr-FR')}`
-    : 'Aucune synchronisation Sheets effectuée.';
-
-  // Apps Script code display
-  const display = document.getElementById('apps-script-display');
-  if (display) display.textContent = APPS_SCRIPT_CODE;
-
-  // GS URL input + activer les boutons
-  initGSUrl();
-
-  // ⚠️ NE PAS appeler refreshJsonExport() ici — JSON.stringify sur 40k clients bloque l'UI
-  // L'export JSON n'est déclenché que par le bouton "Actualiser" explicitement
-  lucide.createIcons();
-}
-
-// ===================== JSON MANUAL BACKUP =====================
-function refreshJsonExport() {
-  const area = document.getElementById('json-export-area');
-  if (!area) return;
-  area.value = JSON.stringify({ clients, purchases, exportedAt: new Date().toISOString() }, null, 2);
-}
-
-function copyJsonExport() {
-  const area = document.getElementById('json-export-area');
-  if (!area) return;
-  navigator.clipboard.writeText(area.value)
-    .then(() => showToast('JSON copié dans le presse-papier !', 'success'))
-    .catch(() => { area.select(); document.execCommand('copy'); showToast('JSON copié !', 'success'); });
-}
-
-function importFromJson() {
-  const area = document.getElementById('json-import-area');
-  if (!area || !area.value.trim()) { showToast('Collez d\'abord un JSON valide.', 'error'); return; }
-  try {
-    const data = JSON.parse(area.value);
-    if (!data.clients || !Array.isArray(data.clients)) throw new Error('Format invalide');
-    clients   = data.clients;
-    purchases = data.purchases || [];
-    // Pas de recalcClientPoints en boucle — données déjà calculées
-    saveLocal();
-    renderDashboard();
-    initSettingsView();
-    showToast(`Import réussi : ${fmtNum(clients.length)} clients, ${fmtNum(purchases.length)} achats.`, 'success');
-    area.value = '';
-  } catch(e) {
-    showToast('JSON invalide : ' + e.message, 'error');
-  }
-}
-
+// ===================== CSV IMPORT =====================
 // ===================== CSV IMPORT =====================
 function handleDragOver(e, zoneId) { e.preventDefault(); document.getElementById(zoneId).classList.add('dragover'); }
 function handleDragLeave(zoneId) { document.getElementById(zoneId).classList.remove('dragover'); }
@@ -2638,6 +2323,10 @@ function processRows(rows, type, resultId) {
   }
   renderDashboard();
   showToast(`Import réussi : ${added} ajoutés, ${updated} mis à jour.`, 'success');
+  // Auto-sync vers Supabase si configuré
+  if (SUPA_URL && SUPA_KEY) {
+    setTimeout(() => syncToSupabase(true), 1500);
+  }
 }
 
 // Alias pour compatibilité (anciens appels à processCSV)
@@ -2740,9 +2429,9 @@ async function runDiagnostic() {
   dbLog('info', `Achats en mémoire  : ${purchases.length}`);
 
   // localStorage
-  const gsUrl    = localStorage.getItem('massin_gs_url');
+  const gsUrl    = localStorage.getItem('supa_url');
   const savedAt  = localStorage.getItem('massin_saved_at');
-  const syncedAt = localStorage.getItem('massin_gs_synced_at');
+  const syncedAt = localStorage.getItem('supa_synced_at');
   let lsSize = 0;
   try { for (const k in localStorage) { if (localStorage.hasOwnProperty(k)) lsSize += (localStorage[k]||'').length; } } catch(e) {}
   dbLog('info', `localStorage utilisé : ~${Math.round(lsSize/1024)} KB`);
@@ -3082,12 +2771,8 @@ function renderWinners(winners, animated) {
 
 // ===================== INIT =====================
 (function init() {
-  _syncLock = false; // reset au cas où il serait bloqué d'une session précédente
-
-  GS_URL = localStorage.getItem('massin_gs_url') || DEFAULT_GS_URL || '';
-  if (GS_URL && !localStorage.getItem('massin_gs_url')) {
-    localStorage.setItem('massin_gs_url', GS_URL);
-  }
+  SUPA_URL = localStorage.getItem('supa_url') || '';
+  SUPA_KEY = localStorage.getItem('supa_key') || '';
 
   const hasLocal = loadLocal();
   renderDashboard();
@@ -3095,8 +2780,9 @@ function renderWinners(winners, animated) {
   updateSyncBadge();
   lucide.createIcons();
 
-  if (!hasLocal && GS_URL) {
-    setTimeout(() => loadFromSheets(false), 1200);
+  // Auto-charge depuis Supabase si pas de données locales et config présente
+  if (!hasLocal && SUPA_URL && SUPA_KEY) {
+    setTimeout(() => loadFromSupabase(false), 1000);
   }
 })();
 </script>
