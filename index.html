@@ -910,8 +910,16 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
             <i data-lucide="cloud-download"></i> Charger depuis Sheets
           </button>
           <button class="btn btn-success btn-sm" onclick="syncToSheets()" id="btn-sync-sheets">
-            <i data-lucide="cloud-upload"></i> Sauvegarder vers Sheets
+            <i data-lucide="cloud-upload"></i> Sauvegarder actifs
           </button>
+        </div>
+        <div style="margin-top:var(--space-3);">
+          <button class="btn btn-primary" style="width:100%;" onclick="syncAllToSheets()">
+            <i data-lucide="database"></i> Sync complet — tous les clients (base historique)
+          </button>
+          <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-1);text-align:center;">
+            À faire UNE FOIS depuis le PC · Rend les données accessibles sur mobile
+          </div>
         </div>
         <div id="gs-last-sync" style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-3);"></div>
       </div>
@@ -2073,6 +2081,44 @@ function showSyncBanner(text, step = '') {
 function hideSyncBanner() {
   const b = document.getElementById('sync-loading-banner');
   if (b) b.style.display = 'none';
+}
+
+// Sync COMPLET : envoie TOUS les clients (base historique incluse)
+// À faire une fois depuis le PC pour rendre les données accessibles sur mobile
+async function syncAllToSheets() {
+  if (!_acquireLock('syncAllToSheets')) return;
+  const url = localStorage.getItem('massin_gs_url') || GS_URL || '';
+  if (!url) { _releaseLock(); showToast('URL Apps Script non configurée.', 'error'); return; }
+
+  if (clients.length === 0) {
+    _releaseLock();
+    showToast('Aucune donnée à sauvegarder — importez d\'abord un fichier.', 'error');
+    return;
+  }
+
+  const body    = JSON.stringify({ action: 'sync', c: minifyClients(clients), p: purchases, totalCount: clients.length, v: 2 });
+  const kb      = Math.round(body.length / 1024);
+  const secEst  = Math.round(kb / 100); // ~100KB/s estimation conservative
+  showSyncBanner('Sync complet vers Google Drive…', `${fmtNum(clients.length)} clients — ${kb} KB (~${secEst}s)`);
+  setSyncBadgeLoading(true);
+  dbLog('info', `syncAllToSheets — ${clients.length} clients, payload ${kb} KB`);
+
+  try {
+    const res  = await dbFetch('SYNC_ALL_POST', url, {
+      method: 'POST', mode: 'cors', redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body
+    }, 120000); // 2 minutes timeout pour le sync complet
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    dbLog('ok', `Sync complet OK — ${data.count} clients sur Drive`);
+    localStorage.setItem('massin_gs_synced_at', new Date().toISOString());
+    showToast(`✅ Sync complet : ${fmtNum(clients.length)} clients sur Drive. Mobile prêt !`, 'success');
+    initSettingsView(); updateSyncBadge();
+  } catch(e) {
+    dbLog('err', `syncAllToSheets : ${e.message}`);
+    showToast(`Erreur sync complet : ${e.message}`, 'error');
+  } finally { hideSyncBanner(); setSyncBadgeLoading(false); _releaseLock(); }
 }
 
 async function syncToSheets(silent = false) {
