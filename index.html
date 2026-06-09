@@ -914,12 +914,17 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
           </button>
         </div>
         <div style="margin-top:var(--space-3);">
-          <button class="btn btn-primary" style="width:100%;" onclick="syncAllToSheets()">
-            <i data-lucide="database"></i> Sync complet — tous les clients (base historique)
+          <button class="btn btn-primary" style="width:100%;" onclick="downloadForDrive()">
+            <i data-lucide="file-down"></i> Télécharger le fichier Drive (upload manuel)
           </button>
           <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-1);text-align:center;">
-            À faire UNE FOIS depuis le PC · Rend les données accessibles sur mobile
+            Méthode fiable pour grandes bases · Uploadez ensuite dans Google Drive
           </div>
+        </div>
+        <div style="margin-top:var(--space-3);">
+          <button class="btn btn-secondary" style="width:100%;opacity:0.7;" onclick="syncAllToSheets()">
+            <i data-lucide="database"></i> Sync complet automatique (lent sur connexion faible)
+          </button>
         </div>
         <div id="gs-last-sync" style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-3);"></div>
       </div>
@@ -2085,6 +2090,33 @@ function hideSyncBanner() {
 
 // Sync COMPLET : envoie TOUS les clients (base historique incluse)
 // À faire une fois depuis le PC pour rendre les données accessibles sur mobile
+// Télécharge le fichier JSON au format exact attendu par Apps Script
+// L'utilisateur l'uploade ensuite manuellement dans Google Drive
+function downloadForDrive() {
+  if (clients.length === 0) {
+    showToast('Aucune donnée — importez d\'abord un fichier.', 'error');
+    return;
+  }
+  const payload = {
+    v: 3,
+    c: minifyClients(clients),
+    p: purchases,
+    savedAt: new Date().toISOString()
+  };
+  const json = JSON.stringify(payload);
+  const kb   = Math.round(json.length / 1024);
+  const blob = new Blob([json], { type: 'application/json' });
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = 'massin_fidelite_data.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+  showToast(`Fichier téléchargé (${kb} KB) — uploadez-le dans Google Drive avec ce nom exact.`, 'success');
+  dbLog('ok', `downloadForDrive : ${clients.length} clients, ${kb} KB`);
+}
+
 async function syncAllToSheets() {
   if (!_acquireLock('syncAllToSheets')) return;
   const url = localStorage.getItem('massin_gs_url') || GS_URL || '';
