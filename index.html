@@ -2103,11 +2103,23 @@ function downloadForDrive() {
     showToast('Aucune donnée — importez d\'abord un fichier.', 'error');
     return;
   }
+  // Format v4 compact : stats agrégées + actifs seulement → ~5KB typiquement
+  const tc = { Platine: 0, Or: 0, Argent: 0, Bronze: 0 };
+  clients.forEach(c => { const t = getTier(c.totalPoints).name; if (tc[t] !== undefined) tc[t]++; });
+  const activeClients = clients.filter(c => (c.ptsAmount||0) > 0 || (c.ptsFreq||0) > 0 || c.type === 'nouveau');
+
   const payload = {
-    v: 3,
-    c: minifyClients(clients),
-    p: purchases,
-    savedAt: new Date().toISOString()
+    v: 4,
+    stats: {
+      total:    clients.length,
+      anciens:  clients.filter(c => c.type === 'ancien').length,
+      nouveaux: clients.filter(c => c.type === 'nouveau').length,
+      totalPts: clients.reduce((s, c) => s + (c.totalPoints||0), 0),
+      tiers:    tc
+    },
+    active:   minifyClients(activeClients),
+    purchases: purchases,
+    savedAt:  new Date().toISOString()
   };
   const json = JSON.stringify(payload);
   const kb   = Math.round(json.length / 1024);
@@ -2115,12 +2127,10 @@ function downloadForDrive() {
   const a    = document.createElement('a');
   a.href     = URL.createObjectURL(blob);
   a.download = 'massin_fidelite_data.json';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(a.href);
-  showToast(`Fichier téléchargé (${kb} KB) — uploadez-le dans Google Drive avec ce nom exact.`, 'success');
-  dbLog('ok', `downloadForDrive : ${clients.length} clients, ${kb} KB`);
+  showToast(`Fichier téléchargé (${kb} KB) — uploadez-le dans Google Drive (remplacer l'existant).`, 'success');
+  dbLog('ok', `downloadForDrive v4 : ${clients.length} clients total, ${activeClients.length} actifs, ${kb} KB`);
 }
 
 async function syncAllToSheets() {
