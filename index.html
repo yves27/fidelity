@@ -2105,11 +2105,15 @@ function processFile(file, type) {
         dbLog('info', `XLSX lu : ${rows.length} lignes, feuille "${wb.SheetNames[0]}"`);
       } else {
         // Parsing CSV / TXT
-        const text  = new TextDecoder('utf-8').decode(e.target.result);
+        // Parser CSV RFC 4180 — gère les champs entre guillemets avec virgules dedans
+        // ex: "Agence Portuaire, Maritime et Fluvial (APMF)" est un seul champ
+        const text  = new TextDecoder('utf-8').decode(e.target.result)
+                        .replace(/^\uFEFF/, ''); // strip BOM
         const lines = text.split(/\r?\n/).filter(l => l.trim());
         const sep   = lines[0].includes(';') ? ';' : ',';
-        rows = lines.map(l => l.split(sep).map(c => c.trim().replace(/^["']|["']$/g, '')));
+        rows = lines.map(l => parseCSVLine(l, sep));
         dbLog('info', `CSV lu : ${rows.length} lignes, séparateur "${sep}"`);
+        dbLog('info', `En-têtes bruts : ${rows[0].slice(0,8).join(' | ')}`);
       }
 
       if (rows.length < 2) { showToast('Fichier vide ou sans données.', 'error'); return; }
@@ -2122,9 +2126,35 @@ function processFile(file, type) {
   reader.readAsArrayBuffer(file);
 }
 
+// Parser CSV RFC 4180 — gère les guillemets et virgules dans les champs
+function parseCSVLine(line, sep = ',') {
+  const result = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQ && line[i+1] === '"') { cur += '"'; i++; } // guillemet échappé ""
+      else inQ = !inQ;
+    } else if (ch === sep && !inQ) {
+      result.push(cur.trim());
+      cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  result.push(cur.trim());
+  return result;
+}
+
 function processRows(rows, type, resultId) {
-  // Normaliser les en-têtes
-  const rawHeaders = rows[0].map(h => String(h).trim().toLowerCase().replace(/[^a-z0-9_]/g,''));
+  // Normaliser les en-têtes (minuscules, sans accents ni caractères spéciaux)
+  const rawHeaders = rows[0].map(h =>
+    String(h).trim().toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // enlève accents
+      .replace(/[^a-z0-9_]/g, '')
+  );
+  dbLog('info', `En-têtes normalisés (${rawHeaders.length}) : ${rawHeaders.slice(0,10).join(' | ')}`);
+  dbLog('info', `Exemple ligne 2 : ${rows[1] ? rows[1].slice(0,5).join(' | ') : 'vide'}`);
   const getCol = (row, ...keys) => {
     for (const k of keys) {
       const idx = rawHeaders.findIndex(h => h.includes(k));
@@ -2210,6 +2240,8 @@ function processRows(rows, type, resultId) {
   lucide.createIcons({ nodes: [document.getElementById(resultId)] });
   renderDashboard();
   showToast(`Import réussi : ${added} ajoutés, ${updated} mis à jour.`, 'success');
+  const resultEl = document.getElementById(resultId);
+  if (resultEl) lucide.createIcons({ nodes: [resultEl] });
 }
 
 // Alias pour compatibilité (anciens appels à processCSV)
