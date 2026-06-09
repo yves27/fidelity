@@ -370,6 +370,16 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
 .text-muted { color: var(--color-text-muted); font-size: var(--text-sm); }
 .font-mono { font-variant-numeric: tabular-nums; }
 
+/* DEBUG PANEL */
+.debug-log { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); font-family: 'Courier New', monospace; font-size: 0.72rem; line-height: 1.6; max-height: 320px; overflow-y: auto; }
+.debug-entry { padding: 2px 0; border-bottom: 1px solid var(--color-divider); display: flex; gap: var(--space-2); }
+.debug-entry .dt { color: var(--color-text-muted); flex-shrink: 0; }
+.debug-entry.info  .msg { color: var(--color-text); }
+.debug-entry.ok    .msg { color: var(--color-success); }
+.debug-entry.warn  .msg { color: var(--color-warning); }
+.debug-entry.err   .msg { color: var(--color-error); font-weight: 700; }
+.debug-entry .sub  { color: var(--color-text-muted); padding-left: var(--space-4); font-size: 0.68rem; }
+
 /* LOADING BANNER */
 .sync-banner { position: fixed; top: 56px; left: 0; right: 0; z-index: 200; background: var(--color-primary); color: #fff; padding: var(--space-2) var(--space-6); display: flex; align-items: center; gap: var(--space-3); font-size: var(--text-sm); font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.2); transition: opacity 0.3s; }
 .sync-banner i { width: 16px; height: 16px; animation: spin 1s linear infinite; }
@@ -847,6 +857,22 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
           <textarea class="form-textarea" id="json-import-area" rows="6" placeholder="Collez ici un JSON précédemment exporté…" style="font-family:monospace;font-size:0.75rem;"></textarea>
           <button class="btn btn-success btn-sm mt-2" onclick="importFromJson()"><i data-lucide="upload"></i> Importer</button>
         </div>
+      </div>
+    </div>
+
+    <!-- DEBUG PANEL -->
+    <div class="card">
+      <div class="card-title" style="cursor:pointer;user-select:none;" onclick="toggleDebug()">
+        <i data-lucide="bug"></i> Console de diagnostic
+        <span id="debug-toggle-lbl" style="margin-left:auto;font-size:var(--text-xs);color:var(--color-text-muted);">&#9660; Afficher</span>
+      </div>
+      <div id="debug-body" style="display:none;margin-top:var(--space-4);">
+        <div class="flex-gap mb-3" style="flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" onclick="runDiagnostic()"><i data-lucide="stethoscope"></i> Diagnostic complet</button>
+          <button class="btn btn-secondary btn-sm" onclick="copyDebugLog()"><i data-lucide="copy"></i> Copier les logs</button>
+          <button class="btn btn-secondary btn-sm" onclick="clearDebug()"><i data-lucide="trash-2"></i> Effacer</button>
+        </div>
+        <div class="debug-log" id="debug-log"><span style="color:var(--color-text-muted);">Cliquez "Diagnostic complet" pour demarrer</span></div>
       </div>
     </div>
   </div>
@@ -1857,36 +1883,31 @@ function hideSyncBanner() {
 
 async function syncToSheets(silent = false) {
   const url = localStorage.getItem('massin_gs_url') || GS_URL || '';
-  if (!url) {
-    showToast('URL Apps Script non configurée — allez dans Paramètres.', 'error');
-    return;
-  }
-  showSyncBanner('Sauvegarde vers Google Sheets…', `${fmtNum(clients.length)} clients`);
+  if (!url) { showToast('URL Apps Script non configurée — allez dans Paramètres.', 'error'); return; }
+  if (!silent) showSyncBanner('Sauvegarde vers Google Drive…', `${fmtNum(clients.length)} clients`);
   setSyncBadgeLoading(true);
+  dbLog('info', `syncToSheets — ${clients.length} clients, ${purchases.length} achats`);
   try {
-    showSyncBanner('Envoi des données…', 'Connexion à Apps Script');
-    const res = await fetch(url, {
-      method: 'POST',
-      mode: 'cors',
-      redirect: 'follow',
+    const body = JSON.stringify({ action: 'sync', clients, purchases });
+    dbLog('info', `Payload : ${Math.round(body.length/1024)} KB`);
+    const res  = await dbFetch('SYNC_POST', url, {
+      method: 'POST', mode: 'cors', redirect: 'follow',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'sync', clients, purchases })
+      body
     });
-    showSyncBanner('Envoi des données…', 'Traitement par Apps Script');
     if (!res.ok) throw new Error(`HTTP ${res.status} — ${res.statusText}`);
     const data = await res.json();
     if (data.error) throw new Error(data.error);
+    dbLog('ok', `Sync OK — savedAt: ${data.savedAt || '?'}`);
     localStorage.setItem('massin_gs_synced_at', new Date().toISOString());
-    if (!silent) showToast(`✅ ${fmtNum(clients.length)} clients sauvegardés dans Google Sheets.`, 'success');
+    if (!silent) showToast(`✅ ${fmtNum(clients.length)} clients sauvegardés.`, 'success');
     initSettingsView();
     updateSyncBadge();
   } catch(e) {
-    const msg = `Erreur sync : ${e.message}`;
-    if (!silent) showToast(msg, 'error');
-    console.error('[syncToSheets]', e);
-    // Afficher l'erreur dans le panneau Paramètres
-    const gsSync = document.getElementById('gs-last-sync');
-    if (gsSync) gsSync.innerHTML = `<span style="color:var(--color-error)">⚠️ ${msg}</span>`;
+    dbLog('err', `syncToSheets échoué : ${e.message}`);
+    if (!silent) showToast(`Erreur sync : ${e.message}`, 'error');
+    const el = document.getElementById('gs-last-sync');
+    if (el) el.innerHTML = `<span style="color:var(--color-error)">⚠️ ${e.message}</span>`;
   } finally {
     hideSyncBanner();
     setSyncBadgeLoading(false);
@@ -1895,39 +1916,34 @@ async function syncToSheets(silent = false) {
 
 async function loadFromSheets(silent = false) {
   const url = localStorage.getItem('massin_gs_url') || GS_URL || '';
-  if (!url) {
-    if (!silent) showToast('URL Apps Script non configurée — allez dans Paramètres.', 'error');
-    return;
-  }
+  if (!url) { if (!silent) showToast('URL Apps Script non configurée.', 'error'); return; }
   if (!silent) showSyncBanner('Chargement depuis Google Drive…', 'Connexion en cours');
   setSyncBadgeLoading(true);
+  dbLog('info', `loadFromSheets (silent=${silent})`);
   try {
-    if (!silent) showSyncBanner('Chargement depuis Google Drive…', 'Lecture du fichier JSON');
-    const res = await fetch(url, { mode: 'cors', redirect: 'follow' });
+    const res  = await dbFetch('LOAD_GET', url, { mode: 'cors', redirect: 'follow' });
     if (!res.ok) throw new Error(`HTTP ${res.status} — ${res.statusText}`);
-
     if (!silent) showSyncBanner('Chargement depuis Google Drive…', 'Réception des données');
-    const data = await res.json();
+    const text = await res.text();
+    dbLog('info', `Réponse : ${Math.round(text.length/1024)} KB`);
+    const data = JSON.parse(text);
     if (data.error) throw new Error(data.error);
-    if (!Array.isArray(data.clients)) throw new Error(`Format invalide — reçu: ${typeof data.clients}`);
-
-    if (!silent) showSyncBanner('Mise en mémoire…', `${fmtNum(data.clients.length)} clients`);
+    if (!Array.isArray(data.clients)) throw new Error(`Format invalide — clients est de type ${typeof data.clients}`);
     clients   = data.clients;
     purchases = data.purchases || [];
-
+    dbLog('ok', `Chargé : ${clients.length} clients, ${purchases.length} achats`);
     saveLocal();
     localStorage.setItem('massin_gs_synced_at', new Date().toISOString());
     renderDashboard();
     initSettingsView();
     updateSyncBadge();
-    if (!silent) showToast(`✅ ${fmtNum(clients.length)} clients et ${fmtNum(purchases.length)} achats chargés.`, 'success');
-    else if (clients.length > 0) showToast(`✅ Données à jour — ${fmtNum(clients.length)} clients chargés.`, 'success');
+    if (!silent) showToast(`✅ ${fmtNum(clients.length)} clients chargés.`, 'success');
+    else showToast(`✅ Données à jour — ${fmtNum(clients.length)} clients.`, 'success');
   } catch(e) {
-    const msg = `Erreur chargement : ${e.message}`;
-    if (!silent) showToast(msg, 'error');
-    console.error('[loadFromSheets]', e);
-    const gsSync = document.getElementById('gs-last-sync');
-    if (gsSync) gsSync.innerHTML = `<span style="color:var(--color-error)">⚠️ ${msg}</span>`;
+    dbLog('err', `loadFromSheets échoué : ${e.message}`);
+    if (!silent) showToast(`Erreur chargement : ${e.message}`, 'error');
+    const el = document.getElementById('gs-last-sync');
+    if (el) el.innerHTML = `<span style="color:var(--color-error)">⚠️ ${e.message}</span>`;
   } finally {
     hideSyncBanner();
     setSyncBadgeLoading(false);
@@ -2141,6 +2157,161 @@ function exportCSV() {
     r.setAttribute('data-theme', d);
   });
 })();
+
+// ===================== DEBUG / DIAGNOSTIC =====================
+const _dbLog = [];
+let _dbVisible = false;
+
+function dbLog(level, msg, detail) {
+  const now = new Date();
+  const t = now.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit', second:'2-digit' })
+            + '.' + String(now.getMilliseconds()).padStart(3,'0');
+  _dbLog.push({ t, level, msg, detail: detail ? String(detail).substring(0,300) : null });
+  _dbRender();
+}
+
+function _dbRender() {
+  const el = document.getElementById('debug-log');
+  if (!el || !_dbVisible) return;
+  if (_dbLog.length === 0) { el.innerHTML = '<span style="color:var(--color-text-muted);">— Aucun log —</span>'; return; }
+  el.innerHTML = [..._dbLog].reverse().map(e => {
+    return `<div class="debug-entry ${e.level}">
+      <span class="dt">${e.t}</span>
+      <div><span class="msg">${e.msg}</span>${e.detail ? `<div class="sub">${e.detail}</div>` : ''}</div>
+    </div>`;
+  }).join('');
+}
+
+function toggleDebug() {
+  _dbVisible = !_dbVisible;
+  const body = document.getElementById('debug-body');
+  const lbl  = document.getElementById('debug-toggle-lbl');
+  if (body) body.style.display = _dbVisible ? 'block' : 'none';
+  if (lbl)  lbl.textContent    = _dbVisible ? '▲ Masquer' : '▼ Afficher';
+  if (_dbVisible) _dbRender();
+  lucide.createIcons();
+}
+
+function clearDebug() {
+  _dbLog.length = 0;
+  _dbRender();
+}
+
+function copyDebugLog() {
+  const text = '=== MASS\'IN DEBUG LOG ===\n'
+    + `Date : ${new Date().toLocaleString('fr-FR')}\n`
+    + `Clients : ${clients.length} | Achats : ${purchases.length}\n`
+    + `GS URL : ${localStorage.getItem('massin_gs_url') || 'NON CONFIGURÉE'}\n`
+    + '---\n'
+    + _dbLog.map(e => `[${e.t}] [${e.level.toUpperCase()}] ${e.msg}${e.detail ? '\n  > ' + e.detail : ''}`).join('\n');
+  navigator.clipboard.writeText(text)
+    .then(() => showToast('Logs copiés — collez-les dans le chat !', 'success'))
+    .catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); ta.remove();
+      showToast('Logs copiés !', 'success');
+    });
+}
+
+async function runDiagnostic() {
+  clearDebug();
+  if (!_dbVisible) toggleDebug();
+  dbLog('info', '══ DIAGNOSTIC DÉMARRÉ ══');
+
+  // Environnement
+  dbLog('info', `Navigateur : ${navigator.userAgent.split(') ').pop().split(' ')[0]}`);
+  dbLog('info', `URL de l\'app : ${window.location.href}`);
+  dbLog('info', `Protocole : ${window.location.protocol}`);
+
+  // État des données
+  dbLog('info', `Clients en mémoire : ${clients.length}`);
+  dbLog('info', `Achats en mémoire  : ${purchases.length}`);
+
+  // localStorage
+  const gsUrl    = localStorage.getItem('massin_gs_url');
+  const savedAt  = localStorage.getItem('massin_saved_at');
+  const syncedAt = localStorage.getItem('massin_gs_synced_at');
+  let lsSize = 0;
+  try { for (const k in localStorage) { if (localStorage.hasOwnProperty(k)) lsSize += (localStorage[k]||'').length; } } catch(e) {}
+  dbLog('info', `localStorage utilisé : ~${Math.round(lsSize/1024)} KB`);
+  dbLog(gsUrl ? 'ok' : 'warn', `GS URL : ${gsUrl ? gsUrl.substring(0,70)+'...' : 'NON CONFIGURÉE'}`);
+  dbLog('info', `Dernière save locale : ${savedAt  ? new Date(savedAt).toLocaleString('fr-FR')  : 'jamais'}`);
+  dbLog('info', `Dernière sync Drive  : ${syncedAt ? new Date(syncedAt).toLocaleString('fr-FR') : 'jamais'}`);
+
+  if (!gsUrl) {
+    dbLog('warn', 'Pas d\'URL configurée — test réseau ignoré');
+    dbLog('info', '══ DIAGNOSTIC TERMINÉ ══');
+    return;
+  }
+
+  // Test GET
+  dbLog('info', 'Test GET (lecture Drive)…');
+  const t0 = Date.now();
+  try {
+    const res = await fetch(gsUrl, { mode: 'cors', redirect: 'follow' });
+    const ms  = Date.now() - t0;
+    dbLog(res.ok ? 'ok' : 'err', `Réponse HTTP ${res.status} en ${ms}ms`);
+    const text = await res.text();
+    dbLog('info', `Taille réponse : ${Math.round(text.length/1024)} KB`);
+    try {
+      const data = JSON.parse(text);
+      if (data.error) {
+        dbLog('err', `Erreur Apps Script : ${data.error}`);
+      } else {
+        dbLog('ok',   `JSON valide — clients: ${(data.clients||[]).length}, achats: ${(data.purchases||[]).length}`);
+        if (data.savedAt) dbLog('info', `Données sauvées le : ${new Date(data.savedAt).toLocaleString('fr-FR')}`);
+      }
+    } catch(je) {
+      dbLog('err', `JSON invalide : ${je.message}`, text.substring(0, 200));
+    }
+  } catch(fe) {
+    dbLog('err', `Fetch GET échoué : ${fe.message}`);
+  }
+
+  // Test POST (ping léger sans données)
+  dbLog('info', 'Test POST (ping Apps Script)…');
+  const t1 = Date.now();
+  try {
+    const res  = await fetch(gsUrl, {
+      method: 'POST', mode: 'cors', redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'ping' })
+    });
+    const ms   = Date.now() - t1;
+    const text = await res.text();
+    dbLog(res.ok ? 'ok' : 'err', `Réponse POST HTTP ${res.status} en ${ms}ms`);
+    try {
+      const data = JSON.parse(text);
+      // ping retourne "Action inconnue" — c'est normal, ça prouve que le POST fonctionne
+      dbLog('ok', `POST fonctionne (réponse: ${JSON.stringify(data).substring(0,80)})`);
+    } catch(je) {
+      dbLog('warn', `Réponse POST non-JSON : ${text.substring(0,100)}`);
+    }
+  } catch(fe) {
+    dbLog('err', `Fetch POST échoué : ${fe.message}`);
+  }
+
+  dbLog('info', '══ DIAGNOSTIC TERMINÉ ══');
+}
+
+// Wrapper fetch avec logs automatiques
+async function dbFetch(label, url, options = {}) {
+  const method   = options.method || 'GET';
+  const bodySize = options.body ? Math.round(options.body.length / 1024) : 0;
+  dbLog('info', `→ ${method} ${label}${bodySize ? ` (payload: ${bodySize}KB)` : ''}`);
+  const t0 = Date.now();
+  try {
+    const res = await fetch(url, options);
+    const ms  = Date.now() - t0;
+    dbLog(res.ok ? 'ok' : 'warn', `← ${res.status} ${label} — ${ms}ms`);
+    return res;
+  } catch(e) {
+    const ms = Date.now() - t0;
+    dbLog('err', `✗ ${label} — ${ms}ms — ${e.message}`);
+    throw e;
+  }
+}
 
 // ===================== INIT =====================
 (function init() {
