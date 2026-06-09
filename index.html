@@ -1317,8 +1317,36 @@ function renderDashboardGlobal() {
   const totalPts = clients.reduce((s, c) => s + (c.totalPoints || 0), 0);
   const pct      = total > 0 ? Math.round(anciens / total * 100) : 0;
 
-  // Tier counts
-  const tierCounts = { Platine: 0, Or: 0, Argent: 0, Bronze: 0 };
+  if (total === 0) {
+    // Aucune donnée — afficher un CTA visible pour charger
+    const gsConfigured = !!(localStorage.getItem('massin_gs_url') || DEFAULT_GS_URL);
+    document.getElementById('kpi-grid').innerHTML = '';
+    document.getElementById('tier-distribution').innerHTML = `
+      <div class="card" style="text-align:center;padding:var(--space-12);">
+        <div style="font-size:3rem;margin-bottom:var(--space-4);">📊</div>
+        <div style="font-size:var(--text-xl);font-weight:800;margin-bottom:var(--space-2);">Aucune donnée chargée</div>
+        <div style="color:var(--color-text-muted);margin-bottom:var(--space-6);">
+          ${gsConfigured
+            ? 'Vos données sont sur Google Drive. Appuyez sur le bouton pour les charger.'
+            : 'Importez un fichier CSV/XLSX ou configurez Google Drive dans Paramètres.'}
+        </div>
+        ${gsConfigured ? `
+          <button class="btn btn-primary" style="font-size:1rem;padding:var(--space-3) var(--space-8);" onclick="loadFromSheets(false)">
+            <i data-lucide="cloud-download"></i> Charger les données depuis Drive
+          </button>` : `
+          <div class="flex-gap" style="justify-content:center;flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="switchView('import')"><i data-lucide="upload-cloud"></i> Importer un fichier</button>
+            <button class="btn btn-secondary" onclick="switchView('settings')"><i data-lucide="settings-2"></i> Configurer Drive</button>
+          </div>`}
+        <div id="load-cta-status" style="margin-top:var(--space-4);font-size:var(--text-sm);color:var(--color-text-muted);"></div>
+      </div>`;
+    document.getElementById('podium-title').innerHTML = '';
+    document.getElementById('podium-list').innerHTML = '';
+    document.getElementById('recent-title').innerHTML = '';
+    document.getElementById('recent-purchases').innerHTML = '';
+    lucide.createIcons();
+    return;
+  }
   clients.forEach(c => {
     const t = getTier(c.totalPoints).name;
     if (tierCounts[t] !== undefined) tierCounts[t]++;
@@ -2010,25 +2038,32 @@ async function syncToSheets(silent = false) {
   if (!_acquireLock('syncToSheets')) return;
   const url = localStorage.getItem('massin_gs_url') || GS_URL || '';
   if (!url) { _releaseLock(); showToast('URL Apps Script non configurée.', 'error'); return; }
-  if (!silent) showSyncBanner('Sauvegarde vers Google Drive…', `${fmtNum(clients.length)} clients`);
+
+  // Sync intelligente : uniquement les clients ACTIFS (avec achats ou nouveaux)
+  // La base historique pure (39K sans achat) reste en local — pas besoin de la re-syncer
+  const activeClients = clients.filter(c =>
+    (c.ptsAmount || 0) > 0 || (c.ptsFreq || 0) > 0 || c.type === 'nouveau'
+  );
+  // Si aucun actif, envoyer quand même les 500 premiers pour ne pas vider le Drive
+  const toSync = activeClients.length > 0 ? activeClients : clients.slice(0, 500);
+
+  if (!silent) showSyncBanner('Sauvegarde vers Google Drive…',
+    `${fmtNum(toSync.length)} clients actifs`);
   setSyncBadgeLoading(true);
-  dbLog('info', `syncToSheets — ${clients.length} clients`);
+  dbLog('info', `syncToSheets — ${toSync.length}/${clients.length} clients à syncer`);
   try {
-    const payload = { action: 'sync', c: minifyClients(clients), p: purchases, v: 2 };
-    const body    = JSON.stringify(payload);
-    const kb      = Math.round(body.length / 1024);
-    dbLog('info', `Payload : ${kb} KB compressé`);
-    if (!silent) showSyncBanner('Sauvegarde vers Google Drive…', `${fmtNum(clients.length)} clients — ${kb} KB`);
+    const body = JSON.stringify({ action: 'sync', c: minifyClients(toSync), p: purchases, totalCount: clients.length, v: 2 });
+    dbLog('info', `Payload : ${Math.round(body.length/1024)} KB`);
     const res  = await dbFetch('SYNC_POST', url, {
       method: 'POST', mode: 'cors', redirect: 'follow',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body
-    }, 25000);
+    }, 60000);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (data.error) throw new Error(data.error);
     dbLog('ok', `Sync OK — count: ${data.count}`);
     localStorage.setItem('massin_gs_synced_at', new Date().toISOString());
-    if (!silent) showToast(`✅ ${fmtNum(clients.length)} clients sauvegardés.`, 'success');
+    if (!silent) showToast(`✅ ${fmtNum(toSync.length)} clients actifs sauvegardés.`, 'success');
     initSettingsView(); updateSyncBadge();
   } catch(e) {
     dbLog('err', `syncToSheets : ${e.message}`);
@@ -2044,7 +2079,7 @@ async function loadFromSheets(silent = false) {
   setSyncBadgeLoading(true);
   dbLog('info', `loadFromSheets (silent=${silent})`);
   try {
-    const res  = await dbFetch('LOAD_GET', url, { mode: 'cors', redirect: 'follow' }, 25000);
+    const res  = await dbFetch('LOAD_GET', url, { mode: 'cors', redirect: 'follow' }, 60000);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     if (!silent) showSyncBanner('Chargement depuis Google Drive…', 'Traitement des données');
     const text = await res.text();
@@ -2859,10 +2894,10 @@ function renderWinners(winners, animated) {
 
 // ===================== INIT =====================
 (function init() {
-  // Résoudre l'URL : localStorage > URL embarquée dans le HTML
+  _syncLock = false; // reset au cas où il serait bloqué d'une session précédente
+
   GS_URL = localStorage.getItem('massin_gs_url') || DEFAULT_GS_URL || '';
   if (GS_URL && !localStorage.getItem('massin_gs_url')) {
-    // Première ouverture sur cet appareil — sauvegarder l'URL en local
     localStorage.setItem('massin_gs_url', GS_URL);
   }
 
@@ -2873,8 +2908,7 @@ function renderWinners(winners, animated) {
   lucide.createIcons();
 
   if (!hasLocal && GS_URL) {
-    // Nouvel appareil / cache vide → chargement visible avec feedback
-    setTimeout(() => loadFromSheets(false), 800);
+    setTimeout(() => loadFromSheets(false), 1200);
   }
 })();
 </script>
