@@ -914,13 +914,9 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
             <i data-lucide="cloud-upload"></i> Sauvegarder vers Supabase
           </button>
         </div>
-        <div style="margin-top:var(--space-3);">
-          <button class="btn btn-primary" style="width:100%;" onclick="generateHTMLWithCredentials()">
-            <i data-lucide="file-down"></i> Générer HTML avec mes identifiants
-          </button>
-          <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-1);text-align:center;">
-            Télécharge un index.html avec vos identifiants intégrés → uploadez sur GitHub → tous les appareils se connectent automatiquement
-          </div>
+        <div style="margin-top:var(--space-3);padding:var(--space-3);background:var(--color-primary-highlight);border-radius:var(--radius-md);font-size:var(--text-xs);color:var(--color-text-muted);">
+          💡 <strong>Identifiants dans config.js</strong> — modifiez uniquement ce fichier dans votre repo GitHub. 
+          Le fichier index.html peut être remplacé librement sans reconfiguration.
         </div>
         <div id="supa-last-sync" style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-3);"></div>
       </div>
@@ -1110,6 +1106,7 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
   </div>
 </div>
 
+<script src="config.js" onerror="console.warn('config.js non trouvé — configurez Supabase dans Paramètres')"></script>
 <script>
 // ===================== DATA STORE =====================
 let clients = [];
@@ -1346,27 +1343,34 @@ function renderDashboardGlobal() {
   const pct      = total > 0 ? Math.round(anciens / total * 100) : 0;
 
   if (total === 0) {
-    // Aucune donnée — afficher un CTA visible pour charger
-    const gsConfigured = !!(localStorage.getItem('supa_url') && localStorage.getItem('supa_key'));
+    const supaConfigured = !!(SUPA_URL && SUPA_KEY);
     document.getElementById('kpi-grid').innerHTML = '';
-    document.getElementById('tier-distribution').innerHTML = `
+    document.getElementById('tier-distribution').innerHTML = supaConfigured ? `
+      <div class="card" style="text-align:center;padding:var(--space-12);">
+        <div style="font-size:3rem;margin-bottom:var(--space-4);">⏳</div>
+        <div style="font-size:var(--text-xl);font-weight:800;margin-bottom:var(--space-2);">Chargement en cours…</div>
+        <div style="color:var(--color-text-muted);margin-bottom:var(--space-6);">
+          Connexion à Supabase et récupération des données
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:var(--space-3);">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--color-primary);animation:spin 1s linear infinite;"></div>
+          <span style="font-size:var(--text-sm);color:var(--color-text-muted);" id="load-cta-status">Connexion…</span>
+        </div>
+      </div>` : `
       <div class="card" style="text-align:center;padding:var(--space-12);">
         <div style="font-size:3rem;margin-bottom:var(--space-4);">📊</div>
         <div style="font-size:var(--text-xl);font-weight:800;margin-bottom:var(--space-2);">Aucune donnée chargée</div>
         <div style="color:var(--color-text-muted);margin-bottom:var(--space-6);">
-          ${gsConfigured
-            ? 'Vos données sont sur Google Drive. Appuyez sur le bouton pour les charger.'
-            : 'Importez un fichier CSV/XLSX ou configurez Google Drive dans Paramètres.'}
+          Importez votre fichier XLSX ODOO ou configurez Supabase dans Paramètres.
         </div>
-        ${gsConfigured ? `
-          <button class="btn btn-primary" style="font-size:1rem;padding:var(--space-3) var(--space-8);" onclick="loadFromSupabase(false)">
-            <i data-lucide="cloud-download"></i> Charger les données depuis Drive
-          </button>` : `
-          <div class="flex-gap" style="justify-content:center;flex-wrap:wrap;">
-            <button class="btn btn-primary" onclick="switchView('import')"><i data-lucide="upload-cloud"></i> Importer un fichier</button>
-            <button class="btn btn-secondary" onclick="switchView('settings')"><i data-lucide="settings-2"></i> Configurer Drive</button>
-          </div>`}
-        <div id="load-cta-status" style="margin-top:var(--space-4);font-size:var(--text-sm);color:var(--color-text-muted);"></div>
+        <div class="flex-gap" style="justify-content:center;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="switchView('import')">
+            <i data-lucide="upload-cloud"></i> Importer un fichier ODOO
+          </button>
+          <button class="btn btn-secondary" onclick="switchView('settings')">
+            <i data-lucide="settings-2"></i> Configurer Supabase
+          </button>
+        </div>
       </div>`;
     document.getElementById('podium-title').innerHTML = '';
     document.getElementById('podium-list').innerHTML = '';
@@ -2003,10 +2007,10 @@ ALTER TABLE purchases ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public" ON clients FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Public" ON purchases FOR ALL USING (true) WITH CHECK (true);`;
 
-// Identifiants Supabase embarqués — remplacez ces valeurs une fois,
-// uploadez sur GitHub, et TOUS les appareils se connecteront automatiquement
-const DEFAULT_SUPA_URL = '';
-const DEFAULT_SUPA_KEY = '';
+// Identifiants chargés depuis config.js (fichier séparé dans le repo)
+// Si config.js absent, utilise les valeurs vides → configure dans Paramètres
+if (typeof DEFAULT_SUPA_URL === 'undefined') window.DEFAULT_SUPA_URL = '';
+if (typeof DEFAULT_SUPA_KEY === 'undefined') window.DEFAULT_SUPA_KEY = '';
 
 let SUPA_URL = localStorage.getItem('supa_url') || DEFAULT_SUPA_URL || '';
 let SUPA_KEY = localStorage.getItem('supa_key') || DEFAULT_SUPA_KEY || '';
@@ -2054,10 +2058,12 @@ async function loadFromSupabase(silent = false) {
   if (!silent) showSyncBanner('Chargement depuis Supabase…', 'connexion');
   setSyncBadgeLoading(true);
   dbLog('info', 'loadFromSupabase démarré');
+  const updStatus = (msg) => { const el = document.getElementById('load-cta-status'); if (el) el.textContent = msg; };
   try {
     const PAGE = 1000;
     let allClients = [], page = 0;
     while (true) {
+      updStatus('Chargement clients… ' + fmtNum(allClients.length));
       const rows = await supaFetch(
         'clients?select=*&order=total_points.desc&offset=' + (page * PAGE) + '&limit=' + PAGE
       );
@@ -2066,6 +2072,7 @@ async function loadFromSupabase(silent = false) {
       if (rows.length < PAGE) break;
       page++;
     }
+    updStatus('Finalisation…');
     const pRows = await supaFetch('purchases?select=*&order=date.desc&limit=50000');
     clients   = allClients;
     purchases = pRows.map(p => ({ id: p.id, clientId: p.client_id, amount: p.amount, date: p.date }));
@@ -2246,31 +2253,6 @@ function saveSupaConfig() {
 function setSyncBadgeLoading(on) {
   if (on) setBadge('warn spin', 'loader', 'Sync…');
   else updateSyncBadge();
-}
-
-// Génère un index.html avec les identifiants Supabase embarqués
-// → uploadez ce fichier sur GitHub → tous les appareils se connectent automatiquement
-function generateHTMLWithCredentials() {
-  if (!SUPA_URL || !SUPA_KEY) {
-    showToast('Enregistrez d\'abord vos identifiants Supabase.', 'error'); return;
-  }
-  // Lire le HTML actuel de la page, remplacer les constantes vides par les vraies valeurs
-  fetch(window.location.href)
-    .then(r => r.text())
-    .then(src => {
-      const updated = src
-        .replace("const DEFAULT_SUPA_URL = '';", "const DEFAULT_SUPA_URL = '" + SUPA_URL + "';")
-        .replace("const DEFAULT_SUPA_KEY = '';", "const DEFAULT_SUPA_KEY = '" + SUPA_KEY + "';");
-      const blob = new Blob([updated], { type: 'text/html' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'index.html';
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(a.href);
-      showToast('index.html généré — uploadez-le sur GitHub !', 'success');
-      dbLog('ok', 'HTML avec identifiants Supabase généré');
-    })
-    .catch(() => showToast('Erreur de génération — rechargez et réessayez.', 'error'));
 }
 
 function copySQLSchema() {
@@ -3091,7 +3073,6 @@ function renderWinners(winners, animated) {
 (function init() {
   SUPA_URL = localStorage.getItem('supa_url') || DEFAULT_SUPA_URL || '';
   SUPA_KEY = localStorage.getItem('supa_key') || DEFAULT_SUPA_KEY || '';
-  // Persiste les defaults en localStorage si pas encore définis
   if (DEFAULT_SUPA_URL && !localStorage.getItem('supa_url')) localStorage.setItem('supa_url', DEFAULT_SUPA_URL);
   if (DEFAULT_SUPA_KEY && !localStorage.getItem('supa_key')) localStorage.setItem('supa_key', DEFAULT_SUPA_KEY);
 
@@ -3101,9 +3082,17 @@ function renderWinners(winners, animated) {
   updateSyncBadge();
   lucide.createIcons();
 
-  // Auto-charge depuis Supabase si pas de données locales et config présente
+  // Auto-charge immédiat si Supabase configuré et pas de données locales
   if (!hasLocal && SUPA_URL && SUPA_KEY) {
-    setTimeout(() => loadFromSupabase(false), 1000);
+    // Mettre à jour le statut dans la carte de chargement
+    const updateStatus = (msg) => {
+      const el = document.getElementById('load-cta-status');
+      if (el) el.textContent = msg;
+    };
+    updateStatus('Connexion à Supabase…');
+    loadFromSupabase(false).catch(() => {
+      updateStatus('Erreur de connexion — vérifiez Paramètres');
+    });
   }
 })();
 </script>
