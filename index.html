@@ -1737,14 +1737,9 @@ function updateSyncBadge() {
 let GS_URL = '';
 
 const APPS_SCRIPT_CODE = `// ================================================
-// Mass'In Fidélité — Apps Script v3 (Code.gs)
+// Mass'In Fidélité — Apps Script v4 (Code.gs)
 // Stockage : fichier JSON dans Google Drive
-// Bien plus rapide que la lecture ligne par ligne
-// dans un tableur (39 000+ clients).
-//
-// MIGRATION : si vous aviez une version précédente,
-// cliquez "Sauvegarder vers Sheets" une fois depuis
-// l'app pour créer le fichier JSON dans votre Drive.
+// Format compressé v2 pour réduire la bande passante
 // ================================================
 
 const FILE_NAME = "massin_fidelite_data.json";
@@ -1755,12 +1750,7 @@ function doGet(e) {
     if (!files.hasNext()) {
       return respond({ clients: [], purchases: [], info: "Premier démarrage" });
     }
-    const data = JSON.parse(files.next().getBlob().getDataAsString());
-    return respond({
-      clients:   data.clients   || [],
-      purchases: data.purchases || [],
-      savedAt:   data.savedAt   || null
-    });
+    return respond(JSON.parse(files.next().getBlob().getDataAsString()));
   } catch(err) {
     return respond({ error: err.toString() });
   }
@@ -1770,20 +1760,24 @@ function doPost(e) {
   try {
     const raw  = e.postData ? e.postData.contents : "{}";
     const data = JSON.parse(raw);
+    if (data.action === "ping") return respond({ pong: true });
     if (data.action !== "sync") return respond({ error: "Action inconnue" });
+
+    // Compatible format compressé (v:2) et format classique
     const payload = {
-      clients:   data.clients   || [],
-      purchases: data.purchases || [],
-      savedAt:   new Date().toISOString()
+      v:       data.v || 1,
+      c:       data.c || data.clients   || [],   // clients compressés ou classiques
+      p:       data.p || data.purchases || [],   // achats
+      savedAt: new Date().toISOString()
     };
     const json  = JSON.stringify(payload);
     const files = DriveApp.getFilesByName(FILE_NAME);
     if (files.hasNext()) {
-      files.next().setContent(json);   // mise à jour du fichier existant
+      files.next().setContent(json);
     } else {
-      DriveApp.createFile(FILE_NAME, json, MimeType.PLAIN_TEXT);  // 1er enregistrement
+      DriveApp.createFile(FILE_NAME, json, MimeType.PLAIN_TEXT);
     }
-    return respond({ ok: true, savedAt: payload.savedAt, count: payload.clients.length });
+    return respond({ ok: true, savedAt: payload.savedAt, count: payload.c.length });
   } catch(err) {
     return respond({ error: err.toString() });
   }
@@ -1793,6 +1787,12 @@ function respond(data) {
   const out = ContentService.createTextOutput(JSON.stringify(data));
   out.setMimeType(ContentService.MimeType.JSON);
   return out;
+}
+
+// Optionnel : lancez cette fonction UNE FOIS pour autoriser Drive
+function autoriserDrive() {
+  DriveApp.getRootFolder();
+  Logger.log("✅ Accès Google Drive autorisé !");
 }`;
 
 function initGSUrl() {
@@ -1888,30 +1888,28 @@ async function syncToSheets(silent = false) {
   setSyncBadgeLoading(true);
   dbLog('info', `syncToSheets — ${clients.length} clients, ${purchases.length} achats`);
   try {
-    const body = JSON.stringify({ action: 'sync', clients, purchases });
-    dbLog('info', `Payload : ${Math.round(body.length/1024)} KB`);
-    const res  = await dbFetch('SYNC_POST', url, {
+    // Compression : champs courts + suppression des valeurs vides → réduit ~70% du poids
+    const payload = { action: 'sync', c: minifyClients(clients), p: purchases, v: 2 };
+    const body    = JSON.stringify(payload);
+    dbLog('info', `Payload compressé : ${Math.round(body.length/1024)} KB (vs ~${Math.round(JSON.stringify(clients).length/1024)}KB non compressé)`);
+    const res = await dbFetch('SYNC_POST', url, {
       method: 'POST', mode: 'cors', redirect: 'follow',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status} — ${res.statusText}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (data.error) throw new Error(data.error);
-    dbLog('ok', `Sync OK — savedAt: ${data.savedAt || '?'}`);
+    dbLog('ok', `Sync OK — savedAt: ${data.savedAt || '?'}, count: ${data.count || '?'}`);
     localStorage.setItem('massin_gs_synced_at', new Date().toISOString());
     if (!silent) showToast(`✅ ${fmtNum(clients.length)} clients sauvegardés.`, 'success');
     initSettingsView();
     updateSyncBadge();
   } catch(e) {
     dbLog('err', `syncToSheets échoué : ${e.message}`);
-    if (!silent) showToast(`Erreur sync : ${e.message}`, 'error');
+    if (!silent) showToast(`Erreur : ${e.message}`, 'error');
     const el = document.getElementById('gs-last-sync');
     if (el) el.innerHTML = `<span style="color:var(--color-error)">⚠️ ${e.message}</span>`;
-  } finally {
-    hideSyncBanner();
-    setSyncBadgeLoading(false);
-  }
+  } finally { hideSyncBanner(); setSyncBadgeLoading(false); }
 }
 
 async function loadFromSheets(silent = false) {
@@ -1922,15 +1920,19 @@ async function loadFromSheets(silent = false) {
   dbLog('info', `loadFromSheets (silent=${silent})`);
   try {
     const res  = await dbFetch('LOAD_GET', url, { mode: 'cors', redirect: 'follow' });
-    if (!res.ok) throw new Error(`HTTP ${res.status} — ${res.statusText}`);
-    if (!silent) showSyncBanner('Chargement depuis Google Drive…', 'Réception des données');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!silent) showSyncBanner('Chargement depuis Google Drive…', 'Traitement des données');
     const text = await res.text();
     dbLog('info', `Réponse : ${Math.round(text.length/1024)} KB`);
-    const data = JSON.parse(text);
-    if (data.error) throw new Error(data.error);
-    if (!Array.isArray(data.clients)) throw new Error(`Format invalide — clients est de type ${typeof data.clients}`);
+    const raw  = JSON.parse(text);
+    if (raw.error) throw new Error(raw.error);
+    // Support format compressé (v:2) ET format classique
+    const data = raw.v === 2
+      ? { clients: expandClients(raw.c || []), purchases: raw.p || [] }
+      : { clients: raw.clients || [],          purchases: raw.purchases || [] };
+    if (!Array.isArray(data.clients)) throw new Error(`Format invalide — type: ${typeof data.clients}`);
     clients   = data.clients;
-    purchases = data.purchases || [];
+    purchases = data.purchases;
     dbLog('ok', `Chargé : ${clients.length} clients, ${purchases.length} achats`);
     saveLocal();
     localStorage.setItem('massin_gs_synced_at', new Date().toISOString());
@@ -1938,16 +1940,13 @@ async function loadFromSheets(silent = false) {
     initSettingsView();
     updateSyncBadge();
     if (!silent) showToast(`✅ ${fmtNum(clients.length)} clients chargés.`, 'success');
-    else showToast(`✅ Données à jour — ${fmtNum(clients.length)} clients.`, 'success');
+    else         showToast(`✅ Données à jour — ${fmtNum(clients.length)} clients.`, 'success');
   } catch(e) {
     dbLog('err', `loadFromSheets échoué : ${e.message}`);
-    if (!silent) showToast(`Erreur chargement : ${e.message}`, 'error');
+    if (!silent) showToast(`Erreur : ${e.message}`, 'error');
     const el = document.getElementById('gs-last-sync');
     if (el) el.innerHTML = `<span style="color:var(--color-error)">⚠️ ${e.message}</span>`;
-  } finally {
-    hideSyncBanner();
-    setSyncBadgeLoading(false);
-  }
+  } finally { hideSyncBanner(); setSyncBadgeLoading(false); }
 }
 
 function setSyncBadgeLoading(on) {
@@ -2295,22 +2294,59 @@ async function runDiagnostic() {
   dbLog('info', '══ DIAGNOSTIC TERMINÉ ══');
 }
 
-// Wrapper fetch avec logs automatiques
-async function dbFetch(label, url, options = {}) {
+// Wrapper fetch avec timeout + logs automatiques
+async function dbFetch(label, url, options = {}, timeoutMs = 40000) {
+  const ctrl = new AbortController();
+  const tid  = setTimeout(() => ctrl.abort(), timeoutMs);
   const method   = options.method || 'GET';
   const bodySize = options.body ? Math.round(options.body.length / 1024) : 0;
-  dbLog('info', `→ ${method} ${label}${bodySize ? ` (payload: ${bodySize}KB)` : ''}`);
+  dbLog('info', `→ ${method} ${label}${bodySize ? ` — ${bodySize}KB` : ''} [max ${timeoutMs/1000}s]`);
   const t0 = Date.now();
   try {
-    const res = await fetch(url, options);
-    const ms  = Date.now() - t0;
-    dbLog(res.ok ? 'ok' : 'warn', `← ${res.status} ${label} — ${ms}ms`);
+    const res = await fetch(url, { ...options, signal: ctrl.signal });
+    clearTimeout(tid);
+    const ms = Date.now() - t0;
+    dbLog(res.ok ? 'ok' : 'warn', `← HTTP ${res.status} en ${ms}ms`);
     return res;
   } catch(e) {
+    clearTimeout(tid);
     const ms = Date.now() - t0;
-    dbLog('err', `✗ ${label} — ${ms}ms — ${e.message}`);
+    if (e.name === 'AbortError') {
+      const msg = `Timeout après ${ms}ms — serveur trop lent ou connexion coupée`;
+      dbLog('err', msg);
+      throw new Error(msg);
+    }
+    dbLog('err', `✗ ${label} après ${ms}ms — ${e.message}`);
     throw e;
   }
+}
+
+// ── Compression payload ──────────────────────────────────────────────────────
+// Réduit le JSON de ~5MB à ~1.5MB en supprimant les champs vides/nuls
+function minifyClients(arr) {
+  return arr.map(c => {
+    const m = { id: c.id, n: c.name, t: c.type };       // toujours présents
+    if (c.email)            m.e  = c.email;
+    if (c.phone)            m.ph = c.phone;
+    if (c.historicalPoints) m.h  = c.historicalPoints;
+    if (c.ptsAmount)        m.pa = c.ptsAmount;
+    if (c.ptsFreq)          m.pf = c.ptsFreq;
+    if (c.totalPoints)      m.tp = c.totalPoints;
+    return m;
+  });
+}
+function expandClients(arr) {
+  return arr.map(c => ({
+    id:               c.id   || 0,
+    name:             c.n    || c.name  || '',
+    email:            c.e    || c.email || '',
+    phone:            c.ph   || c.phone || '',
+    type:             c.t    || c.type  || 'nouveau',
+    historicalPoints: c.h    || c.historicalPoints || 0,
+    ptsAmount:        c.pa   || c.ptsAmount  || 0,
+    ptsFreq:          c.pf   || c.ptsFreq    || 0,
+    totalPoints:      c.tp   || c.totalPoints || 0,
+  }));
 }
 
 // ===================== INIT =====================
