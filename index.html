@@ -2214,6 +2214,11 @@ function processRows(rows, type, resultId) {
   let added = 0, updated = 0, skipped = 0;
   const t0 = Date.now();
 
+  // Pré-calcul des IDs max UNE SEULE FOIS avant la boucle — évite O(n²)
+  // Math.max(...array) avec 40k éléments peut aussi faire stack overflow → reduce
+  let nextClientId   = clients.reduce((m, c) => Math.max(m, c.id || 0), 0) + 1;
+  let nextPurchaseId = purchases.reduce((m, p) => Math.max(m, p.id || 0), 0) + 1;
+
   for (let i = 1; i < rows.length; i++) {
     const row      = rows[i];
     const name     = getCol(row, 'nom', 'name', 'client', 'raison');
@@ -2238,7 +2243,7 @@ function processRows(rows, type, resultId) {
 
     if (existing) {
       if (amount > 0 && type === 'monthly') {
-        const pid = Math.max(0, ...purchases.map(p => p.id), 0) + 1;
+        const pid = nextPurchaseId++;
         purchases.push({ id: pid, clientId: existing.id, amount, date: finalDate });
         // Pour mensuel on recalcule (peu de clients)
         recalcClientPoints(existing.id);
@@ -2248,7 +2253,7 @@ function processRows(rows, type, resultId) {
       }
       updated++;
     } else {
-      const newId   = Math.max(0, ...clients.map(c => c.id), 0) + 1;
+      const newId = nextClientId++;
       const histPts = type === 'legacy' ? getAmountPts(amount) : 0;
       clients.push({
         id: newId, name: name || email, email, phone,
@@ -2257,7 +2262,7 @@ function processRows(rows, type, resultId) {
         totalPoints: histPts  // ← direct, pas de recalcClientPoints
       });
       if (type === 'monthly' && amount > 0) {
-        const pid = Math.max(0, ...purchases.map(p => p.id), 0) + 1;
+        const pid = nextPurchaseId++;
         purchases.push({ id: pid, clientId: newId, amount, date: finalDate });
         recalcClientPoints(newId);
       }
@@ -2276,20 +2281,22 @@ function processRows(rows, type, resultId) {
   dbLog('ok', `Import terminé en ${elapsed}ms — +${added} ajoutés, ~${updated} mis à jour, ${skipped} ignorés`);
   saveLocal();
 
-  document.getElementById(resultId).innerHTML = `
-    <div class="alert alert-success"><i data-lucide="check-circle"></i>
-      <div><strong>Import terminé !</strong><br>
-      ✅ ${added} nouveau(x) client(s) ajouté(s)<br>
-      🔄 ${updated} client(s) existant(s) mis à jour<br>
-      ⏭️ ${skipped} ligne(s) ignorée(s) (données manquantes)<br>
-      <span style="font-size:0.8em;opacity:0.8;">⏱ ${elapsed}ms — ${rows.length-1} lignes traitées</span>
-      </div>
-    </div>`;
-  lucide.createIcons({ nodes: [document.getElementById(resultId)] });
+  const resultEl = document.getElementById(resultId);
+  if (resultEl) {
+    resultEl.innerHTML = `
+      <div class="alert alert-success">
+        <i data-lucide="check-circle"></i>
+        <div><strong>Import terminé !</strong><br>
+        ✅ ${added} nouveau(x) client(s) ajouté(s)<br>
+        🔄 ${updated} client(s) existant(s) mis à jour<br>
+        ⏭️ ${skipped} ligne(s) ignorée(s)<br>
+        <span style="font-size:0.8em;opacity:0.8;">⏱ ${elapsed}ms — ${rows.length-1} lignes traitées</span>
+        </div>
+      </div>`;
+    try { lucide.createIcons({ nodes: [resultEl] }); } catch(e) { /* lucide optional */ }
+  }
   renderDashboard();
   showToast(`Import réussi : ${added} ajoutés, ${updated} mis à jour.`, 'success');
-  const resultEl = document.getElementById(resultId);
-  if (resultEl) lucide.createIcons({ nodes: [resultEl] });
 }
 
 // Alias pour compatibilité (anciens appels à processCSV)
