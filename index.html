@@ -2379,25 +2379,48 @@ function detectODOOPivot(rows) {
 }
 
 function convertODOOPivot(rows, { yearRow, years, yearCols }) {
-  // Sauter les lignes d'en-tête (yearRow + 1 ligne "Total HT") et la ligne grand total
   const dataStart = yearRow + 2;
-  const result    = [['nom', 'montant', 'annee']]; // en-tête synthétique
-  let   skipped   = 0;
+
+  // Détecter les colonnes EXTRA (pas de nom, pas d'année) : email, téléphone, catégorie, date…
+  const headerRow = rows[yearRow] || rows[0];
+  const extraCols = []; // {idx, header}
+  headerRow.forEach((h, idx) => {
+    if (idx === 0) return; // colonne nom
+    if (yearCols.includes(idx)) return; // colonne année
+    const hNorm = String(h ?? '').trim().toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, '');
+    if (hNorm) extraCols.push({ idx, header: hNorm });
+  });
+
+  // En-têtes synthétiques : colonnes fixes + colonnes extra détectées
+  const headers = ['nom', 'montant', 'annee', ...extraCols.map(c => c.header)];
+  const result  = [headers];
+  let   skipped = 0;
 
   for (let r = dataStart; r < rows.length; r++) {
     const row  = rows[r];
     const name = String(row[0] ?? '').trim();
     if (!name || /^total$/i.test(name)) { skipped++; continue; }
 
+    // Extraire les valeurs des colonnes extra pour cette ligne
+    const extraVals = extraCols.map(c => String(row[c.idx] ?? '').trim());
+
     let hasData = false;
     for (let i = 0; i < yearCols.length; i++) {
       const raw    = row[yearCols[i]];
       const amount = parseFloat(String(raw ?? '').replace(/[^0-9.]/g, '')) || 0;
-      if (amount > 0) { result.push([name, amount, years[i]]); hasData = true; }
+      if (amount > 0) {
+        result.push([name, amount, years[i], ...extraVals]);
+        hasData = true;
+      }
     }
-    if (!hasData) skipped++; // client sans aucune vente
+    if (!hasData) skipped++;
   }
-  dbLog('info', `Pivot converti : ${result.length - 1} entrées, ${skipped} lignes vides ignorées`);
+
+  const extraNames = extraCols.map(c => c.header).join(', ');
+  dbLog('info', `Pivot converti : ${result.length - 1} entrées, ${skipped} vides ignorées`
+    + (extraCols.length ? ` | Colonnes extra : ${extraNames}` : ''));
   return result;
 }
 
@@ -2438,6 +2461,24 @@ function processRows(rows, type, resultId) {
     return '';
   };
 
+  // Résumé des colonnes détectées — flexible, pas de colonne obligatoire sauf nom+montant
+  const colMap = {
+    nom:       rawHeaders.findIndex(h => h.includes('nom') || h.includes('name') || h.includes('client') || h.includes('raison')),
+    email:     rawHeaders.findIndex(h => h.includes('email') || h.includes('mail') || h.includes('courriel')),
+    telephone: rawHeaders.findIndex(h => h.includes('tel') || h.includes('phone') || h.includes('mobile') || h.includes('contact')),
+    montant:   rawHeaders.findIndex(h => h.includes('montant') || h.includes('amount') || h.includes('total') || h.includes('ca') || h.includes('chiffre')),
+    date:      rawHeaders.findIndex(h => h.includes('date') || h.includes('jour')),
+    annee:     rawHeaders.findIndex(h => h.includes('annee') || h.includes('year') || h.includes('an') || h.includes('periode')),
+    categorie: rawHeaders.findIndex(h => h.includes('categ') || h.includes('article') || h.includes('produit') || h.includes('famille') || h.includes('type')),
+    ville:     rawHeaders.findIndex(h => h.includes('ville') || h.includes('city') || h.includes('adresse') || h.includes('region')),
+  };
+  const detected = Object.entries(colMap).filter(([,idx]) => idx >= 0).map(([k]) => k);
+  const missing  = Object.entries(colMap).filter(([k,idx]) => idx < 0 && ['nom','montant'].includes(k)).map(([k]) => k);
+  dbLog('info', `Colonnes détectées (${detected.length}/${rawHeaders.length}) : ${detected.join(', ')}${missing.length ? ' | Manquantes : '+missing.join(', ') : ''}`);
+  if (colMap.date >= 0)      dbLog('ok',  'Dates exactes disponibles → granularité mensuelle activée');
+  if (colMap.telephone >= 0) dbLog('ok',  'Téléphone disponible → matching amélioré');
+  if (colMap.categorie >= 0) dbLog('ok',  'Catégorie disponible → analyse par produit possible');
+
   let added = 0, updated = 0, skipped = 0;
   const t0 = Date.now();
 
@@ -2466,11 +2507,14 @@ function processRows(rows, type, resultId) {
     const name     = getCol(row, 'nom', 'name', 'client', 'raison');
     const email    = getCol(row, 'email', 'mail', 'courriel');
     const phone    = getCol(row, 'telephone', 'phone', 'tel', 'mobile');
-    const amountRaw= getCol(row, 'montant', 'amount', 'total', 'ca', 'chiffre');
-    const amount   = parseFloat(String(amountRaw).replace(/[^0-9.]/g,'')) || 0;
-    const yearStr  = getCol(row, 'annee', 'year', 'an', 'periode', 'exercice');
-    const dateStr  = getCol(row, 'date', 'jour');
+    const amountRaw  = getCol(row, 'montant', 'amount', 'total', 'ca', 'chiffre');
+    const amount     = parseFloat(String(amountRaw).replace(/[^0-9.]/g,'')) || 0;
+    const yearStr    = getCol(row, 'annee', 'year', 'an', 'periode', 'exercice');
+    const dateStr    = getCol(row, 'date', 'jour');
+    const categorie  = getCol(row, 'categ', 'article', 'produit', 'famille');
+    const ville      = getCol(row, 'ville', 'city', 'adresse', 'region');
 
+    // Date : exacte si dispo, sinon 1er janvier de l'année, sinon aujourd'hui
     let finalDate;
     if (dateStr && String(dateStr).match(/\d{4}/)) finalDate = String(dateStr).split('T')[0];
     else if (yearStr && String(yearStr).match(/^\d{4}$/)) finalDate = `${yearStr}-01-01`;
@@ -2485,6 +2529,10 @@ function processRows(rows, type, resultId) {
   if (!existing && name)  existing = nameMap.get(name.toLowerCase().trim());
 
     if (existing) {
+      // Enrichir les champs si nouvellement disponibles
+      if (email && !existing.email) { existing.email = email; emailMap.set(email.toLowerCase(), existing); }
+      if (phone && !existing.phone) { existing.phone = phone; phoneMap.set(phone, existing); }
+      if (ville && !existing.ville) existing.ville = ville;
       if (amount > 0 && type === 'monthly') {
         const pid = nextPurchaseId++;
         purchases.push({ id: pid, clientId: existing.id, amount, date: finalDate });
@@ -2512,6 +2560,9 @@ function processRows(rows, type, resultId) {
         type: 'nouveau', // sera corrigé dans le batch final
         historicalPoints: histPts, historicalPtsFreq: 0,
         ptsAmount: campPts, ptsFreq: 0, totalPoints: histPts + campPts };
+      // Stocker les champs supplémentaires si disponibles
+      if (ville)     nc.ville     = ville;
+      if (categorie) nc.categorie = categorie;
       clients.push(nc);
       // Mise à jour des Maps pour détecter les doublons dans la même passe
       if (nc.email) emailMap.set(nc.email.toLowerCase(), nc);
@@ -2571,14 +2622,19 @@ function processRows(rows, type, resultId) {
 
   const resultEl = document.getElementById(resultId);
   if (resultEl) {
+    const colSummary = detected.map(k => ({
+      nom:'👤 Nom', email:'📧 Email', telephone:'📱 Téléphone', montant:'💰 Montant',
+      date:'📅 Date exacte', annee:'📅 Année', categorie:'🏷️ Catégorie', ville:'📍 Ville'
+    }[k] || k)).join(' · ');
     resultEl.innerHTML = `
       <div class="alert alert-success">
         <i data-lucide="check-circle"></i>
         <div><strong>Import terminé !</strong><br>
-        ✅ ${added} nouveau(x) client(s) ajouté(s)<br>
-        🔄 ${updated} client(s) existant(s) mis à jour<br>
+        ✅ ${added} nouveau(x) client(s)<br>
+        🔄 ${updated} client(s) mis à jour<br>
         ⏭️ ${skipped} ligne(s) ignorée(s)<br>
-        <span style="font-size:0.8em;opacity:0.8;">⏱ ${elapsed}ms — ${rows.length-1} lignes traitées</span>
+        <span style="font-size:0.8em;opacity:0.8;">⏱ ${elapsed}ms · ${rows.length-1} lignes</span><br>
+        <span style="font-size:0.8em;color:var(--color-success);">Colonnes utilisées : ${colSummary}</span>
         </div>
       </div>`;
     try { lucide.createIcons({ nodes: [resultEl] }); } catch(e) { /* lucide optional */ }
