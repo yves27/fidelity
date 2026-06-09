@@ -2117,6 +2117,15 @@ function processFile(file, type) {
       }
 
       if (rows.length < 2) { showToast('Fichier vide ou sans données.', 'error'); return; }
+
+      // Détection automatique du tableau croisé ODOO
+      const pivot = detectODOOPivot(rows);
+      if (pivot) {
+        dbLog('info', `Tableau croisé ODOO détecté — années: ${pivot.years.join(', ')}`);
+        rows = convertODOOPivot(rows, pivot);
+        dbLog('info', `Converti en ${rows.length - 1} lignes plates (1 ligne = 1 client × 1 année)`);
+      }
+
       processRows(rows, type, resultId);
     } catch(err) {
       showToast('Erreur de parsing : ' + err.message, 'error');
@@ -2124,6 +2133,45 @@ function processFile(file, type) {
     }
   };
   reader.readAsArrayBuffer(file);
+}
+
+// ── Détection et conversion du tableau croisé ODOO ───────────────────────────
+// Structure : 3 lignes d'en-tête, puis clients × années en colonnes
+function detectODOOPivot(rows) {
+  // Chercher la ligne qui contient des années (2000-2030) dans les colonnes 1+
+  for (let r = 0; r <= Math.min(3, rows.length - 1); r++) {
+    const row   = rows[r];
+    const years = [], yearCols = [];
+    for (let c = 1; c < row.length; c++) {
+      const v = parseInt(String(row[c] ?? '').trim());
+      if (v >= 2000 && v <= 2030) { years.push(v); yearCols.push(c); }
+    }
+    if (years.length >= 3) return { yearRow: r, years, yearCols };
+  }
+  return null; // pas un pivot ODOO
+}
+
+function convertODOOPivot(rows, { yearRow, years, yearCols }) {
+  // Sauter les lignes d'en-tête (yearRow + 1 ligne "Total HT") et la ligne grand total
+  const dataStart = yearRow + 2;
+  const result    = [['nom', 'montant', 'annee']]; // en-tête synthétique
+  let   skipped   = 0;
+
+  for (let r = dataStart; r < rows.length; r++) {
+    const row  = rows[r];
+    const name = String(row[0] ?? '').trim();
+    if (!name || /^total$/i.test(name)) { skipped++; continue; }
+
+    let hasData = false;
+    for (let i = 0; i < yearCols.length; i++) {
+      const raw    = row[yearCols[i]];
+      const amount = parseFloat(String(raw ?? '').replace(/[^0-9.]/g, '')) || 0;
+      if (amount > 0) { result.push([name, amount, years[i]]); hasData = true; }
+    }
+    if (!hasData) skipped++; // client sans aucune vente
+  }
+  dbLog('info', `Pivot converti : ${result.length - 1} entrées, ${skipped} lignes vides ignorées`);
+  return result;
 }
 
 // Parser CSV RFC 4180 — gère les guillemets et virgules dans les champs
