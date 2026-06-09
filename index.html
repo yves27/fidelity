@@ -539,16 +539,16 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
       <div class="flex-gap" style="gap:var(--space-3);flex-wrap:wrap;">
         <div class="search-wrap" style="flex:1;min-width:220px;">
           <i data-lucide="search"></i>
-          <input type="text" class="form-input search-input" id="client-search" placeholder="Rechercher par nom, email, téléphone…" oninput="renderClientsTable()">
+          <input type="text" class="form-input search-input" id="client-search" placeholder="Rechercher par nom, email, téléphone…" oninput="clientsPage=0;renderClientsTable()">
         </div>
-        <select class="form-select" style="width:180px;" id="client-filter-tier" onchange="renderClientsTable()">
+        <select class="form-select" style="width:180px;" id="client-filter-tier" onchange="clientsPage=0;renderClientsTable()">
           <option value="">Tous les niveaux</option>
           <option value="Bronze">Bronze</option>
           <option value="Argent">Argent</option>
           <option value="Or">Or</option>
           <option value="Platine">Platine</option>
         </select>
-        <select class="form-select" style="width:160px;" id="client-filter-type" onchange="renderClientsTable()">
+        <select class="form-select" style="width:160px;" id="client-filter-type" onchange="clientsPage=0;renderClientsTable()">
           <option value="">Tous les clients</option>
           <option value="ancien">Anciens clients</option>
           <option value="nouveau">Nouveaux clients</option>
@@ -576,6 +576,7 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
           </thead>
           <tbody id="clients-tbody"></tbody>
         </table>
+        <div id="clients-pagination"></div>
       </div>
     </div>
   </div>
@@ -1346,31 +1347,40 @@ function renderRecentPurchases(list) {
 }
 
 // ===================== CLIENTS TABLE =====================
-function renderClientsTable() {
-  const search = document.getElementById('client-search').value.toLowerCase();
+let clientsPage = 0;
+const CLIENTS_PER_PAGE = 100;
+
+function renderClientsTable(resetPage = false) {
+  if (resetPage) clientsPage = 0;
+  const search     = document.getElementById('client-search').value.toLowerCase();
   const tierFilter = document.getElementById('client-filter-tier').value;
   const typeFilter = document.getElementById('client-filter-type').value;
 
   let filtered = clients.filter(c => {
-    const s = search;
-    const matchSearch = !s || c.name.toLowerCase().includes(s) || (c.email && c.email.toLowerCase().includes(s)) || (c.phone && c.phone.includes(s));
-    const tier = getTier(c.totalPoints).name;
-    const matchTier = !tierFilter || tier === tierFilter;
+    const matchSearch = !search || c.name.toLowerCase().includes(search)
+      || (c.email && c.email.toLowerCase().includes(search))
+      || (c.phone && c.phone.includes(search));
+    const matchTier = !tierFilter || getTier(c.totalPoints).name === tierFilter;
     const matchType = !typeFilter || c.type === typeFilter;
     return matchSearch && matchTier && matchType;
   });
 
-  const sorted = [...filtered].sort((a, b) => b.totalPoints - a.totalPoints);
-  const tbody = document.getElementById('clients-tbody');
+  const sorted  = [...filtered].sort((a, b) => b.totalPoints - a.totalPoints);
+  const total   = sorted.length;
+  const visible = sorted.slice(0, (clientsPage + 1) * CLIENTS_PER_PAGE);
+  const tbody   = document.getElementById('clients-tbody');
 
-  if (sorted.length === 0) {
+  if (total === 0) {
     tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><i data-lucide="search-x"></i><h3>Aucun client trouvé</h3><p>Essayez d'autres termes de recherche.</p></div></td></tr>`;
     lucide.createIcons({ nodes: [tbody] });
+    // Clear pagination
+    const pag = document.getElementById('clients-pagination');
+    if (pag) pag.innerHTML = '';
     return;
   }
 
-  tbody.innerHTML = sorted.map((c, i) => {
-    const tier = getTier(c.totalPoints);
+  tbody.innerHTML = visible.map((c, i) => {
+    const tier    = getTier(c.totalPoints);
     const rankCls = i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : '';
     return `<tr id="row-${c.id}">
       <td><span class="rank ${rankCls}">${i + 1}</span></td>
@@ -1384,13 +1394,33 @@ function renderClientsTable() {
       <td class="font-mono" style="font-weight:700;color:var(--color-primary)">${fmtNum(c.totalPoints)}</td>
       <td>
         <div class="flex-gap" style="gap:var(--space-1);">
-          <button class="btn btn-secondary btn-sm" onclick="openClientDetail(${c.id})" title="Voir le détail"><i data-lucide="eye" style="width:14px;height:14px;"></i></button>
-          <button class="btn btn-primary btn-sm" onclick="quickAddPurchase(${c.id})" title="Ajouter un achat"><i data-lucide="plus" style="width:14px;height:14px;"></i></button>
+          <button class="btn btn-secondary btn-sm" onclick="openClientDetail(${c.id})" title="Voir"><i data-lucide="eye" style="width:14px;height:14px;"></i></button>
+          <button class="btn btn-primary btn-sm" onclick="quickAddPurchase(${c.id})" title="Achat"><i data-lucide="plus" style="width:14px;height:14px;"></i></button>
         </div>
       </td>
     </tr>`;
   }).join('');
   lucide.createIcons({ nodes: [tbody] });
+
+  // Pagination footer
+  const pag = document.getElementById('clients-pagination');
+  if (pag) {
+    const shown     = visible.length;
+    const remaining = total - shown;
+    if (remaining > 0) {
+      pag.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-3) 0;font-size:var(--text-sm);color:var(--color-text-muted);">
+          <span>Affichage de <strong>${fmtNum(shown)}</strong> sur <strong>${fmtNum(total)}</strong> clients</span>
+          <button class="btn btn-secondary btn-sm" onclick="clientsPage++;renderClientsTable();">
+            <i data-lucide="chevron-down"></i> Voir ${fmtNum(Math.min(remaining, CLIENTS_PER_PAGE))} de plus
+          </button>
+        </div>`;
+    } else {
+      pag.innerHTML = `<div style="padding:var(--space-2) 0;font-size:var(--text-sm);color:var(--color-text-muted);text-align:center;">
+        ${fmtNum(total)} client(s) affiché(s) au total</div>`;
+    }
+    lucide.createIcons({ nodes: [pag] });
+  }
 }
 
 function openClientDetail(id) {
@@ -1596,9 +1626,14 @@ function saveLocal() {
     localStorage.setItem('massin_clients',   JSON.stringify(clients));
     localStorage.setItem('massin_purchases', JSON.stringify(purchases));
     localStorage.setItem('massin_saved_at',  new Date().toISOString());
-    updateSyncBadge();
-    autoSync(); // ← synchro automatique vers Sheets si URL configurée
-  } catch(e) { console.warn('localStorage write failed', e); }
+  } catch(e) {
+    // QuotaExceededError — dataset trop grand pour localStorage (limite ~5MB)
+    // Les données restent en mémoire pour la session, mais non persistées localement
+    console.warn('localStorage quota dépassé — données en mémoire uniquement', e);
+    localStorage.setItem('massin_saved_at', new Date().toISOString()); // au moins la date
+  }
+  updateSyncBadge();
+  autoSync();
 }
 
 // Auto-sync différé : attend 2s après la dernière modif avant d'envoyer
@@ -1844,21 +1879,26 @@ async function loadFromSheets() {
   const url = GS_URL || localStorage.getItem('massin_gs_url') || '';
   if (!url) { showToast('URL Apps Script non configurée. Allez dans Paramètres.', 'error'); return; }
   setSyncBadgeLoading(true);
+  showToast('Chargement depuis Google Sheets…', 'info');
   try {
-    const res = await fetch(url, { mode: 'cors', redirect: 'follow' });
+    const res  = await fetch(url, { mode: 'cors', redirect: 'follow' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (data.error) throw new Error(data.error);
-    if (!data.clients) throw new Error('Données invalides reçues du Sheet');
+    if (!Array.isArray(data.clients)) throw new Error('Format de données invalide');
+
     clients   = data.clients;
     purchases = data.purchases || [];
-    clients.forEach(c => recalcClientPoints(c.id));
-    saveLocal();
+    // ⚡ PAS de recalcClientPoints() en boucle — totalPoints déjà calculé dans Sheets
+    // recalcClientPoints est O(n²) et gèle le navigateur sur 39 000+ clients
+
+    saveLocal(); // peut échouer silencieusement si > 5MB localStorage
     localStorage.setItem('massin_gs_synced_at', new Date().toISOString());
     renderDashboard();
-    renderClientsTable();
+    // renderClientsTable() non appelé ici — attendez d'ouvrir l'onglet Clients
     initSettingsView();
     updateSyncBadge();
-    showToast(`⬇️ ${clients.length} client(s) chargé(s) depuis Google Sheets.`, 'success');
+    showToast(`✅ ${fmtNum(clients.length)} clients et ${fmtNum(purchases.length)} achats chargés depuis Google Sheets.`, 'success');
   } catch(e) {
     showToast('Erreur de chargement : ' + e.message, 'error');
   } finally {
@@ -1948,12 +1988,11 @@ function importFromJson() {
     if (!data.clients || !Array.isArray(data.clients)) throw new Error('Format invalide');
     clients   = data.clients;
     purchases = data.purchases || [];
-    clients.forEach(c => recalcClientPoints(c.id));
+    // Pas de recalcClientPoints en boucle — données déjà calculées
     saveLocal();
     renderDashboard();
-    renderClientsTable();
     initSettingsView();
-    showToast(`Import réussi : ${clients.length} clients, ${purchases.length} achats.`, 'success');
+    showToast(`Import réussi : ${fmtNum(clients.length)} clients, ${fmtNum(purchases.length)} achats.`, 'success');
     area.value = '';
   } catch(e) {
     showToast('JSON invalide : ' + e.message, 'error');
