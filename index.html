@@ -1711,20 +1711,30 @@ function updateSyncBadge() {
 let GS_URL = '';
 
 const APPS_SCRIPT_CODE = `// ================================================
-// Mass'In Fidélité — Google Apps Script (Code.gs)
-// Collez ce code dans Apps Script, déployez en
-// "Application Web" (accès : Toute personne).
+// Mass'In Fidélité — Apps Script v3 (Code.gs)
+// Stockage : fichier JSON dans Google Drive
+// Bien plus rapide que la lecture ligne par ligne
+// dans un tableur (39 000+ clients).
+//
+// MIGRATION : si vous aviez une version précédente,
+// cliquez "Sauvegarder vers Sheets" une fois depuis
+// l'app pour créer le fichier JSON dans votre Drive.
 // ================================================
 
-const SHEET_CLIENTS   = "Clients";
-const SHEET_PURCHASES = "Achats";
+const FILE_NAME = "massin_fidelite_data.json";
 
 function doGet(e) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const clients   = parseRows(getOrCreate(ss, SHEET_CLIENTS));
-    const purchases = parseRows(getOrCreate(ss, SHEET_PURCHASES));
-    return respond({ clients, purchases });
+    const files = DriveApp.getFilesByName(FILE_NAME);
+    if (!files.hasNext()) {
+      return respond({ clients: [], purchases: [], info: "Premier démarrage" });
+    }
+    const data = JSON.parse(files.next().getBlob().getDataAsString());
+    return respond({
+      clients:   data.clients   || [],
+      purchases: data.purchases || [],
+      savedAt:   data.savedAt   || null
+    });
   } catch(err) {
     return respond({ error: err.toString() });
   }
@@ -1732,48 +1742,25 @@ function doGet(e) {
 
 function doPost(e) {
   try {
-    // Compatible text/plain ET application/json
     const raw  = e.postData ? e.postData.contents : "{}";
     const data = JSON.parse(raw);
-    if (data.action !== "sync") return respond({ error: "Unknown action" });
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    writeSheet(ss, SHEET_CLIENTS,   data.clients   || [],
-      ["id","name","email","phone","type",
-       "historicalPoints","ptsAmount","ptsFreq","totalPoints"]);
-    writeSheet(ss, SHEET_PURCHASES, data.purchases || [],
-      ["id","clientId","amount","date"]);
-    return respond({ ok: true, savedAt: new Date().toISOString() });
+    if (data.action !== "sync") return respond({ error: "Action inconnue" });
+    const payload = {
+      clients:   data.clients   || [],
+      purchases: data.purchases || [],
+      savedAt:   new Date().toISOString()
+    };
+    const json  = JSON.stringify(payload);
+    const files = DriveApp.getFilesByName(FILE_NAME);
+    if (files.hasNext()) {
+      files.next().setContent(json);   // mise à jour du fichier existant
+    } else {
+      DriveApp.createFile(FILE_NAME, json, MimeType.PLAIN_TEXT);  // 1er enregistrement
+    }
+    return respond({ ok: true, savedAt: payload.savedAt, count: payload.clients.length });
   } catch(err) {
     return respond({ error: err.toString() });
   }
-}
-
-function getOrCreate(ss, name) {
-  return ss.getSheetByName(name) || ss.insertSheet(name);
-}
-
-function parseRows(sheet) {
-  const vals = sheet.getDataRange().getValues();
-  if (vals.length < 2) return [];
-  const hdrs = vals[0];
-  return vals.slice(1).filter(r => r[0] !== "" && r[0] !== null).map(r => {
-    const obj = {};
-    hdrs.forEach((h, i) => { obj[h] = r[i]; });
-    ["id","clientId","amount","historicalPoints",
-     "ptsAmount","ptsFreq","totalPoints"].forEach(k => {
-      if (obj[k] !== undefined) obj[k] = Number(obj[k]) || 0;
-    });
-    if (obj.date) obj.date = String(obj.date).split("T")[0];
-    return obj;
-  });
-}
-
-function writeSheet(ss, name, rows, headers) {
-  const sheet = getOrCreate(ss, name);
-  sheet.clearContents();
-  if (rows.length === 0) { sheet.appendRow(headers); return; }
-  const data = [headers, ...rows.map(r => headers.map(h => r[h] ?? ""))];
-  sheet.getRange(1, 1, data.length, headers.length).setValues(data);
 }
 
 function respond(data) {
@@ -1906,39 +1893,38 @@ async function syncToSheets(silent = false) {
   }
 }
 
-async function loadFromSheets() {
+async function loadFromSheets(silent = false) {
   const url = localStorage.getItem('massin_gs_url') || GS_URL || '';
   if (!url) {
-    showToast('URL Apps Script non configurée — allez dans Paramètres.', 'error');
+    if (!silent) showToast('URL Apps Script non configurée — allez dans Paramètres.', 'error');
     return;
   }
-  showSyncBanner('Chargement depuis Google Sheets…', 'Connexion en cours');
+  if (!silent) showSyncBanner('Chargement depuis Google Drive…', 'Connexion en cours');
   setSyncBadgeLoading(true);
   try {
-    showSyncBanner('Chargement depuis Google Sheets…', 'Lecture du Sheet');
+    if (!silent) showSyncBanner('Chargement depuis Google Drive…', 'Lecture du fichier JSON');
     const res = await fetch(url, { mode: 'cors', redirect: 'follow' });
     if (!res.ok) throw new Error(`HTTP ${res.status} — ${res.statusText}`);
 
-    showSyncBanner('Chargement depuis Google Sheets…', 'Réception des données');
+    if (!silent) showSyncBanner('Chargement depuis Google Drive…', 'Réception des données');
     const data = await res.json();
     if (data.error) throw new Error(data.error);
     if (!Array.isArray(data.clients)) throw new Error(`Format invalide — reçu: ${typeof data.clients}`);
 
-    showSyncBanner('Chargement depuis Google Sheets…', `${fmtNum(data.clients.length)} clients reçus — mise en mémoire`);
+    if (!silent) showSyncBanner('Mise en mémoire…', `${fmtNum(data.clients.length)} clients`);
     clients   = data.clients;
     purchases = data.purchases || [];
 
     saveLocal();
     localStorage.setItem('massin_gs_synced_at', new Date().toISOString());
-
-    showSyncBanner('Mise à jour de l\'affichage…', '');
     renderDashboard();
     initSettingsView();
     updateSyncBadge();
-    showToast(`✅ ${fmtNum(clients.length)} clients et ${fmtNum(purchases.length)} achats chargés.`, 'success');
+    if (!silent) showToast(`✅ ${fmtNum(clients.length)} clients et ${fmtNum(purchases.length)} achats chargés.`, 'success');
+    else if (clients.length > 0) showToast(`✅ Données à jour — ${fmtNum(clients.length)} clients chargés.`, 'success');
   } catch(e) {
     const msg = `Erreur chargement : ${e.message}`;
-    showToast(msg, 'error');
+    if (!silent) showToast(msg, 'error');
     console.error('[loadFromSheets]', e);
     const gsSync = document.getElementById('gs-last-sync');
     if (gsSync) gsSync.innerHTML = `<span style="color:var(--color-error)">⚠️ ${msg}</span>`;
@@ -2158,17 +2144,17 @@ function exportCSV() {
 
 // ===================== INIT =====================
 (function init() {
-  const hasLocal = loadLocal();   // true si données en localStorage
+  loadLocal();   // affichage immédiat depuis localStorage (< 1ms)
   GS_URL = localStorage.getItem('massin_gs_url') || '';
   renderDashboard();
   updateDynamicLabels();
   updateSyncBadge();
   lucide.createIcons();
 
-  // Si localStorage vide ET URL Sheets configurée → charger depuis Sheets automatiquement
-  // (ne jamais pousser vers Sheets au chargement pour éviter d'écraser les données cloud)
-  if (!hasLocal && GS_URL) {
-    setTimeout(() => loadFromSheets(), 2000);
+  // Rafraîchissement silencieux depuis Google Drive à chaque ouverture de page
+  // Les données localStorage s'affichent tout de suite, puis se mettent à jour
+  if (GS_URL) {
+    setTimeout(() => loadFromSheets(true), 1500);
   }
 })();
 </script>
