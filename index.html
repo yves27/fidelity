@@ -2077,26 +2077,57 @@ async function syncToSupabase(silent) {
     }
     dbLog('info', 'Bannière affichée, lancement des batchs...');
     
+    // Diagnostic structure du premier client
+    const c0 = clients[0];
+    dbLog('info', 'client[0]: isArray=' + Array.isArray(c0) + 
+      ' id=' + (Array.isArray(c0) ? c0[9] : c0.id) +
+      ' name=' + (Array.isArray(c0) ? (c0[0]||'').substring(0,20) : (c0.name||'').substring(0,20)));
+
+    // Suppression préalable pour éviter les conflits de clé
+    dbLog('info', 'Suppression données Supabase...');
+    const delRes = await fetch(SUPA_URL + '/rest/v1/clients?id=gte.0', {
+      method: 'DELETE',
+      headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
+    });
+    dbLog(delRes.ok ? 'ok' : 'warn', 'DELETE: HTTP ' + delRes.status);
+
     const BATCH = 500;
     let sent = 0;
     for (let i = 0; i < clients.length; i += BATCH) {
-      const batch = clients.slice(i, i + BATCH).map(clientToDB).filter(Boolean);
-      dbLog('info', 'Batch ' + (Math.floor(i/BATCH)+1) + '/' + Math.ceil(clients.length/BATCH) + ' (' + batch.length + ' clients)');
-      
+      const raw = clients.slice(i, i + BATCH);
+      const batch = raw.map(c => {
+        const isArr = Array.isArray(c);
+        const id = isArr ? (c[9]||0) : (c.id||0);
+        if (!id || id <= 0) return null;
+        return {
+          id,
+          name:                isArr ? (c[0]||'') : (c.name||''),
+          email:               (isArr ? c[7] : c.email) || null,
+          phone:               (isArr ? c[8] : c.phone) || null,
+          type:                isArr ? (c[1]||'nouveau') : (c.type||'nouveau'),
+          historical_points:   isArr ? (c[2]||0) : (c.historicalPoints||0),
+          historical_pts_freq: isArr ? (c[3]||0) : (c.historicalPtsFreq||0),
+          pts_amount:          isArr ? (c[4]||0) : (c.ptsAmount||0),
+          pts_freq:            isArr ? (c[5]||0) : (c.ptsFreq||0),
+          total_points:        isArr ? (c[6]||0) : (c.totalPoints||0)
+        };
+      }).filter(Boolean);
+
+      if (batch.length === 0) { dbLog('warn', 'Batch ' + (i/BATCH+1) + ' vide — skip'); continue; }
+      dbLog('info', 'Batch ' + (Math.floor(i/BATCH)+1) + '/' + Math.ceil(clients.length/BATCH) +
+        ' (' + batch.length + ' clients, id[0]=' + batch[0].id + ')');
+
       const res = await fetch(SUPA_URL + '/rest/v1/clients', {
         method: 'POST',
         headers: {
-          'apikey': SUPA_KEY,
-          'Authorization': 'Bearer ' + SUPA_KEY,
-          'Content-Type': 'application/json',
-          'Prefer': 'resolution=merge-duplicates,return=minimal'
+          'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY,
+          'Content-Type': 'application/json', 'Prefer': 'return=minimal'
         },
         body: JSON.stringify(batch)
       });
-      
       if (!res.ok) {
         const errText = await res.text().catch(() => 'no body');
-        throw new Error('HTTP ' + res.status + ' — ' + errText.substring(0, 200));
+        throw new Error('HTTP ' + res.status + ' — ' + errText.substring(0, 300));
       }
       sent += batch.length;
       const bs2 = document.getElementById('sync-banner-step');
