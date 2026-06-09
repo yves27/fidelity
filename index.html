@@ -602,9 +602,8 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
               <th>Téléphone</th>
               <th>Type</th>
               <th>Niveau</th>
-              <th title="Points sur achats du mois en cours">Pts Montant</th>
-              <th title="Bonus fréquence du mois en cours">Pts Fréquence</th>
-              <th title="Points cumulés depuis 2016 : montant + bonus fréquence annuelle">Pts Historique</th>
+              <th title="Points montant : achats campagne + historique ODOO">Pts Montant</th>
+              <th title="Points fréquence : campagne + fidélité annuelle historique">Pts Fréquence</th>
               <th title="Total = Montant + Fréquence + Historique" style="color:var(--color-primary);">Total Points</th>
               <th>Actions</th>
             </tr>
@@ -1553,7 +1552,7 @@ function renderClientsTable(resetPage = false) {
   const tbody   = document.getElementById('clients-tbody');
 
   if (total === 0) {
-    tbody.innerHTML = `<tr><td colspan="11"><div class="empty-state"><i data-lucide="search-x"></i><h3>Aucun client trouvé</h3><p>Essayez d'autres termes de recherche.</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><i data-lucide="search-x"></i><h3>Aucun client trouvé</h3><p>Essayez d'autres termes de recherche.</p></div></td></tr>`;
     lucide.createIcons({ nodes: [tbody] });
     // Clear pagination
     const pag = document.getElementById('clients-pagination');
@@ -1571,9 +1570,8 @@ function renderClientsTable(resetPage = false) {
       <td style="color:var(--color-text-muted)">${c.phone || '—'}</td>
       <td><span class="badge ${c.type === 'ancien' ? 'badge-blue' : 'badge-green'}">${c.type === 'ancien' ? 'Ancien' : 'Nouveau'}</span></td>
       <td><span class="tier-indicator ${tier.cls}">${tier.emoji} ${tier.name}</span></td>
-      <td class="font-mono">${fmtNum(c.ptsAmount)}</td>
-      <td class="font-mono">${fmtNum(c.ptsFreq)}</td>
-      <td class="font-mono" style="color:var(--color-text-muted);" title="Montant: ${fmtNum(c.historicalPoints||0)} + Fréquence: ${fmtNum(c.historicalPtsFreq||0)}">${fmtNum((c.historicalPoints||0)+(c.historicalPtsFreq||0))}</td>
+      <td class="font-mono" title="Campagne: ${fmtNum(c.ptsAmount)} + Historique: ${fmtNum(c.historicalPoints||0)}">${fmtNum((c.ptsAmount||0)+(c.historicalPoints||0))}</td>
+      <td class="font-mono" title="Campagne: ${fmtNum(c.ptsFreq)} + Fidélité années: ${fmtNum(c.historicalPtsFreq||0)}">${fmtNum((c.ptsFreq||0)+(c.historicalPtsFreq||0))}</td>
       <td class="font-mono" style="font-weight:700;color:var(--color-primary)">${fmtNum(c.totalPoints)}</td>
       <td>
         <div class="flex-gap" style="gap:var(--space-1);">
@@ -1632,15 +1630,13 @@ function openClientDetail(id) {
     <div class="grid-3 mb-6" style="gap:var(--space-3);">
       <div class="stat-card gold" style="padding:var(--space-4);">
         <div class="stat-label">Pts Montant</div>
-        <div class="stat-value" style="font-size:var(--text-xl);">${fmtNum(client.ptsAmount)}</div>
+        <div class="stat-value" style="font-size:var(--text-xl);">${fmtNum((client.ptsAmount||0)+(client.historicalPoints||0))}</div>
+        <div class="stat-sub">Campagne: ${fmtNum(client.ptsAmount||0)} + Hist: ${fmtNum(client.historicalPoints||0)}</div>
       </div>
       <div class="stat-card" style="padding:var(--space-4);">
         <div class="stat-label">Pts Fréquence</div>
-        <div class="stat-value" style="font-size:var(--text-xl);">${fmtNum(client.ptsFreq)}</div>
-      </div>
-      <div class="stat-card" style="padding:var(--space-4);">
-        <div class="stat-label">Pts Historiques</div>
-        <div class="stat-value" style="font-size:var(--text-xl);">${fmtNum(client.historicalPoints || 0)}</div>
+        <div class="stat-value" style="font-size:var(--text-xl);">${fmtNum((client.ptsFreq||0)+(client.historicalPtsFreq||0))}</div>
+        <div class="stat-sub">Campagne: ${fmtNum(client.ptsFreq||0)} + Hist: ${fmtNum(client.historicalPtsFreq||0)}</div>
       </div>
     </div>
     <div>
