@@ -893,6 +893,9 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
           <span class="form-hint">Copiez l'URL de déploiement depuis Apps Script</span>
         </div>
         <div class="flex-gap" style="margin-bottom:var(--space-3);">
+          <button class="btn btn-secondary btn-sm" onclick="testRawFetch()">
+            <i data-lucide="radio"></i> Test connexion brute
+          </button>
           <button class="btn btn-secondary btn-sm" onclick="testGSConnection()">
             <i data-lucide="zap"></i> Tester la connexion
           </button>
@@ -1978,6 +1981,35 @@ function toggleSheetButtons() {
   });
 }
 
+// Test ultra-simple — aucun wrapper, fetch brut
+async function testRawFetch() {
+  const url = localStorage.getItem('massin_gs_url') || DEFAULT_GS_URL || '';
+  const el  = document.getElementById('gs-test-result');
+  if (!url) { showToast('Aucune URL configurée.', 'error'); return; }
+  if (el) el.innerHTML = `<div class="gs-status-row" style="color:var(--color-text-muted);"><i data-lucide="loader"></i> Fetch brut en cours…</div>`;
+  lucide.createIcons({ nodes: [el] });
+  dbLog('info', 'testRawFetch → ' + url.substring(0, 60));
+  const t0 = Date.now();
+  try {
+    const res  = await fetch(url); // sans aucune option
+    const text = await res.text();
+    const ms   = Date.now() - t0;
+    dbLog('ok', `Fetch brut OK : ${res.status} en ${ms}ms, ${text.length} chars`);
+    const preview = text.substring(0, 120);
+    if (el) el.innerHTML = `<div class="gs-status-row" style="color:var(--color-success);">
+      <i data-lucide="check-circle"></i>
+      <div><strong>Fetch brut OK</strong> — ${res.status} en ${ms}ms<br>
+      <span style="font-size:0.75rem;opacity:0.8;">${preview}</span></div></div>`;
+  } catch(e) {
+    const ms = Date.now() - t0;
+    dbLog('err', `Fetch brut échoué après ${ms}ms : ${e.message}`);
+    if (el) el.innerHTML = `<div class="gs-status-row" style="color:var(--color-error);">
+      <i data-lucide="x-circle"></i>
+      <div><strong>Erreur fetch brut</strong> : ${e.message}</div></div>`;
+  }
+  lucide.createIcons({ nodes: [el] });
+}
+
 async function testGSConnection() {
   const url = document.getElementById('gs-url-input').value.trim();
   const resultDiv = document.getElementById('gs-test-result');
@@ -2007,17 +2039,23 @@ async function testGSConnection() {
 
 // Verrou : une seule opération Drive à la fois
 let _syncLock = false;
+let _syncLockTimer = null;
 
 function _acquireLock(label) {
   if (_syncLock) {
-    showToast(`Une synchronisation est déjà en cours — attendez qu'elle se termine.`, 'info');
-    dbLog('warn', `${label} bloqué — verrou actif`);
+    dbLog('warn', `${label} bloqué — verrou actif (sera libéré auto dans 5s)`);
+    showToast('Opération en cours, attendez…', 'info');
     return false;
   }
   _syncLock = true;
+  // Libération automatique de sécurité après 65s (évite le blocage permanent)
+  _syncLockTimer = setTimeout(() => { _syncLock = false; }, 65000);
   return true;
 }
-function _releaseLock() { _syncLock = false; }
+function _releaseLock() {
+  clearTimeout(_syncLockTimer);
+  _syncLock = false;
+}
 
 function showSyncBanner(text, step = '') {
   const b = document.getElementById('sync-loading-banner');
@@ -2072,12 +2110,15 @@ async function syncToSheets(silent = false) {
 }
 
 async function loadFromSheets(silent = false) {
+  console.log('[loadFromSheets] démarré, silent=', silent, 'lock=', _syncLock);
+  dbLog('info', `loadFromSheets appelé (silent=${silent}, lock=${_syncLock})`);
   if (!_acquireLock('loadFromSheets')) return;
   const url = localStorage.getItem('massin_gs_url') || GS_URL || '';
+  console.log('[loadFromSheets] URL=', url ? url.substring(0, 60) : 'VIDE');
   if (!url) { _releaseLock(); if (!silent) showToast('URL Apps Script non configurée.', 'error'); return; }
   if (!silent) showSyncBanner('Chargement depuis Google Drive…', 'Connexion en cours');
   setSyncBadgeLoading(true);
-  dbLog('info', `loadFromSheets (silent=${silent})`);
+  dbLog('info', `URL OK, lancement du fetch`);
   try {
     const res  = await dbFetch('LOAD_GET', url, { mode: 'cors', redirect: 'follow' }, 60000);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
