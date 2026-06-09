@@ -523,12 +523,13 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
             <i data-lucide="globe-2"></i> Vue globale
           </button>
           <button class="dash-toggle-btn" id="btn-dash-month" onclick="setDashMode('month')">
-            <i data-lucide="calendar-days"></i> <span id="dash-month-btn-label">Vue mensuelle</span>
+            <i data-lucide="calendar-days"></i> Campagne
           </button>
         </div>
-        <span id="dash-month-badge" class="badge badge-gold" style="display:none;">
-          <i data-lucide="calendar" style="width:12px;height:12px;"></i> <span id="dash-badge-text">Mois en cours</span>
-        </span>
+        <div class="flex-gap" id="year-selector-wrap" style="display:none;gap:var(--space-2);align-items:center;">
+          <span style="font-size:var(--text-xs);color:var(--color-text-muted);">Année :</span>
+          <select id="dash-year-select" class="form-select" style="padding:2px var(--space-2);font-size:var(--text-xs);width:auto;" onchange="renderDashboard()"></select>
+        </div>
       </div>
     </div>
 
@@ -1310,12 +1311,27 @@ function setDashMode(mode) {
   dashMode = mode;
   document.getElementById('btn-dash-global').classList.toggle('active', mode === 'global');
   document.getElementById('btn-dash-month').classList.toggle('active', mode === 'month');
-  const badge = document.getElementById('dash-month-badge');
-  if (badge) badge.style.display = mode === 'month' ? '' : 'none';
+  const wrap = document.getElementById('year-selector-wrap');
+  if (wrap) wrap.style.display = mode === 'month' ? 'flex' : 'none';
   renderDashboard();
 }
 
+function initYearSelector() {
+  const sel = document.getElementById('dash-year-select');
+  if (!sel) return;
+  const currentYear = new Date().getFullYear();
+  // Années disponibles : currentYear down to 2016
+  sel.innerHTML = '';
+  for (let y = currentYear; y >= 2016; y--) {
+    const opt = document.createElement('option');
+    opt.value = y;
+    opt.textContent = y === currentYear ? y + ' (campagne)' : y;
+    sel.appendChild(opt);
+  }
+}
+
 function renderDashboard() {
+  initYearSelector();
   if (dashMode === 'month') renderDashboardMonthly();
   else renderDashboardGlobal();
   lucide.createIcons();
@@ -1438,38 +1454,53 @@ function renderDashboardGlobal() {
 }
 
 function renderDashboardMonthly() {
-  const { month, year } = getCurrentMonthLabel();
-  const now = new Date();
+  const selYear = parseInt(document.getElementById('dash-year-select')?.value || new Date().getFullYear());
+  const year = selYear;
+  const month = year + '';  // label simplifié
+  // Clients actifs = ceux avec ptsAmount > 0 (achat en année campagne)
+  // OU on filtre par année dans purchases
   const monthPurchases = purchases.filter(p => {
     const d = new Date(p.date);
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    return d.getFullYear() === selYear;
   });
-  const caMonth      = monthPurchases.reduce((s, p) => s + p.amount, 0);
-  const clientsMonth = new Set(monthPurchases.map(p => p.clientId)).size;
-  const rachats      = [...new Set(monthPurchases.map(p => p.clientId))]
-    .filter(id => { const c = clients.find(cl => cl.id === id); return c && c.type === 'ancien'; }).length;
-  const ptsMonth     = monthPurchases.reduce((s, p) => s + getAmountPts(p.amount), 0);
+  // Si pas de purchases pour cette année, utiliser ptsAmount directement (import ODOO)
+  const useDirectPts = monthPurchases.length === 0;
+  let caMonth, clientsMonth, rachats, ptsMonth;
+  if (useDirectPts && selYear === new Date().getFullYear()) {
+    // Utilise les ptsAmount calculés à l'import ODOO (année campagne)
+    const activeClients = clients.filter(c => (c.ptsAmount || 0) > 0);
+    clientsMonth = activeClients.length;
+    caMonth      = 0; // CA non disponible sans montants exacts
+    rachats      = activeClients.filter(c => c.type === 'ancien').length;
+    ptsMonth     = activeClients.reduce((s, c) => s + (c.ptsAmount || 0), 0);
+  } else {
+    caMonth      = monthPurchases.reduce((s, p) => s + p.amount, 0);
+    clientsMonth = new Set(monthPurchases.map(p => p.clientId)).size;
+    rachats      = [...new Set(monthPurchases.map(p => p.clientId))]
+      .filter(id => { const c = clients.find(cl => cl.id === id); return c && c.type === 'ancien'; }).length;
+    ptsMonth     = monthPurchases.reduce((s, p) => s + getAmountPts(p.amount), 0);
+  }
 
   document.getElementById('kpi-grid').innerHTML = `
     <div class="stat-card gold">
       <div class="stat-label">Clients actifs</div>
       <div class="stat-value">${fmtNum(clientsMonth)}</div>
-      <div class="stat-sub">Ayant acheté en ${month}</div>
+      <div class="stat-sub">Avec achat en ${year}</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">CA du mois (Ar)</div>
-      <div class="stat-value">${fmtNum(caMonth)}</div>
-      <div class="stat-sub">${monthPurchases.length} transaction(s)</div>
+      <div class="stat-label">${caMonth > 0 ? 'CA ' + year + ' (Ar)' : 'Pts Montant ' + year}</div>
+      <div class="stat-value">${fmtNum(caMonth > 0 ? caMonth : ptsMonth)}</div>
+      <div class="stat-sub">${caMonth > 0 ? monthPurchases.length + ' transaction(s)' : 'Points campagne'}</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Rachats</div>
       <div class="stat-value">${fmtNum(rachats)}</div>
-      <div class="stat-sub">Anciens clients actifs ce mois</div>
+      <div class="stat-sub">Anciens clients actifs en ${year}</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Points distribués</div>
-      <div class="stat-value">${fmtNum(ptsMonth)}</div>
-      <div class="stat-sub">En ${month} ${year}</div>
+      <div class="stat-label">Nouveaux</div>
+      <div class="stat-value">${fmtNum(clientsMonth - rachats)}</div>
+      <div class="stat-sub">Premier achat en ${year}</div>
     </div>`;
 
   // Pas de répartition tiers en mode mensuel
@@ -1483,10 +1514,10 @@ function renderDashboardMonthly() {
     .sort((a, b) => b[1] - a[1]).slice(0, 5)
     .map(([id]) => clients.find(c => c.id === Number(id))).filter(Boolean);
 
-  document.getElementById('podium-title').innerHTML = `<i data-lucide="trophy"></i> Top 5 — ${month} ${year}`;
+  document.getElementById('podium-title').innerHTML = `<i data-lucide="trophy"></i> Top 5 — ${year}`;
   renderPodium(topClients);
 
-  document.getElementById('recent-title').innerHTML = `<i data-lucide="clock"></i> Achats de ${month} ${year}`;
+  document.getElementById('recent-title').innerHTML = `<i data-lucide="clock"></i> Achats enregistrés ${year}`;
   renderRecentPurchases([...monthPurchases].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 6));
 }
 
