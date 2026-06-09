@@ -1835,9 +1835,20 @@ function loadLocal() {
     const p = localStorage.getItem('massin_purchases');
     if (c && p) {
       const raw = JSON.parse(c);
-      clients   = raw.length > 0 && raw[0].n !== undefined ? expandClients(raw) : raw;
+      // Supporte tous les formats : tableau (nouveau), objet minifié (ancien), objet complet (legacy)
+      if (raw.length > 0) {
+        if (Array.isArray(raw[0])) {
+          clients = expandClients(raw); // format tableau [name, type, h, hf, pa, pf, tp, email, phone, id]
+        } else if (raw[0].n !== undefined || raw[0].name !== undefined) {
+          clients = expandClients(raw); // format objet minifié {n, t, h...} ou complet
+        } else {
+          clients = raw; // fallback
+        }
+      } else {
+        clients = [];
+      }
       purchases = JSON.parse(p);
-      return clients.length > 0; // false si tableaux vides → déclenche l'auto-load
+      return clients.length > 0;
     }
   } catch(e) { console.warn('localStorage read failed', e); }
   return false;
@@ -1987,10 +1998,14 @@ async function supaFetch(path, opts = {}) {
 }
 
 function clientToDB(c) {
-  return { id: c.id, name: c.name, email: c.email || null, phone: c.phone || null,
-    type: c.type, historical_points: c.historicalPoints || 0,
-    historical_pts_freq: c.historicalPtsFreq || 0,
-    pts_amount: c.ptsAmount || 0, pts_freq: c.ptsFreq || 0, total_points: c.totalPoints || 0 };
+  const id = c.id || c[9] || null; // supporte format objet ET format tableau brut
+  if (!id) return null; // skip clients sans id valide
+  return { id, name: c.name || c[0] || '', email: (c.email || c[7]) || null,
+    phone: (c.phone || c[8]) || null, type: c.type || c[1] || 'nouveau',
+    historical_points: c.historicalPoints || c[2] || 0,
+    historical_pts_freq: c.historicalPtsFreq || c[3] || 0,
+    pts_amount: c.ptsAmount || c[4] || 0, pts_freq: c.ptsFreq || c[5] || 0,
+    total_points: c.totalPoints || c[6] || 0 };
 }
 function clientFromDB(r) {
   return { id: r.id, name: r.name, email: r.email || '', phone: r.phone || '',
@@ -2065,7 +2080,7 @@ async function syncToSupabase(silent) {
     const BATCH = 500;
     let sent = 0;
     for (let i = 0; i < clients.length; i += BATCH) {
-      const batch = clients.slice(i, i + BATCH).map(clientToDB);
+      const batch = clients.slice(i, i + BATCH).map(clientToDB).filter(Boolean);
       dbLog('info', 'Batch ' + (Math.floor(i/BATCH)+1) + '/' + Math.ceil(clients.length/BATCH) + ' (' + batch.length + ' clients)');
       
       const res = await fetch(SUPA_URL + '/rest/v1/clients', {
