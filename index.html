@@ -1783,7 +1783,7 @@ function submitPurchase() {
       clientId = existing.id;
       showToast(`Client existant trouvé : ${existing.name} — points cumulés.`, 'info');
     } else {
-      const newId = Math.max(0, ...clients.map(c => c.id)) + 1;
+      const newId = clients.reduce((m, c) => Math.max(m, c.id||0), 0) + 1;
       clients.push({ id: newId, name, email, phone, type: 'nouveau', historicalPoints: 0, ptsAmount: 0, ptsFreq: 0, totalPoints: 0 });
       clientId = newId;
     }
@@ -1815,7 +1815,7 @@ function submitAddClient() {
   const phone = document.getElementById('ac-phone').value.trim();
   const pts = parseInt(document.getElementById('ac-points').value) || 0;
   const type = document.getElementById('ac-type').value;
-  const newId = Math.max(0, ...clients.map(c => c.id)) + 1;
+  const newId = clients.reduce((m, c) => Math.max(m, c.id||0), 0) + 1;
   clients.push({ id: newId, name, email, phone, type, historicalPoints: pts, ptsAmount: 0, ptsFreq: 0, totalPoints: pts });
   showToast(`Client ${name} ajouté avec succès.`, 'success');
   closeModal('addClientModal');
@@ -1842,6 +1842,7 @@ function simulatePoints() {
 
 // ===================== PERSISTENCE — localStorage =====================
 function saveLocal() {
+  _compositeMax = null; // invalider le cache composite
   try {
     // Format minifié : ~1.9MB au lieu de ~6MB pour 39K clients → reste dans la limite 5MB
     localStorage.setItem('massin_clients',   JSON.stringify(minifyClients(clients)));
@@ -2085,7 +2086,25 @@ async function loadFromSupabase(silent = false) {
     return true;
   } catch(e) {
     dbLog('err', 'loadFromSupabase : ' + e.message);
-    if (!silent) showToast('Erreur : ' + e.message, 'error');
+    // Afficher l'erreur dans la carte de chargement du dashboard
+    const errCard = document.getElementById('tier-distribution');
+    const is404   = e.message.includes('404') || e.message.includes('relation') || e.message.includes('does not exist');
+    const isAuth  = e.message.includes('401') || e.message.includes('403') || e.message.includes('JWT') || e.message.includes('apikey');
+    const errMsg  = is404  ? '⚠️ Tables Supabase introuvables — avez-vous exécuté le schéma SQL ?\n(Paramètres → Copier le SQL → SQL Editor → Run)'
+                  : isAuth ? '🔑 Identifiants Supabase invalides — vérifiez URL et clé dans config.js'
+                  :          '❌ Erreur : ' + e.message;
+    if (errCard) errCard.innerHTML = `
+      <div class="card" style="text-align:center;padding:var(--space-12);">
+        <div style="font-size:2rem;margin-bottom:var(--space-4);">${is404 ? '🗄️' : isAuth ? '🔑' : '❌'}</div>
+        <div style="font-size:var(--text-lg);font-weight:700;margin-bottom:var(--space-3);color:var(--color-error);">${is404 ? 'Tables non créées' : isAuth ? 'Identifiants invalides' : 'Erreur de connexion'}</div>
+        <div style="color:var(--color-text-muted);margin-bottom:var(--space-6);white-space:pre-line;font-size:var(--text-sm);">${errMsg}</div>
+        <div class="flex-gap" style="justify-content:center;flex-wrap:wrap;">
+          ${is404 ? `<button class="btn btn-primary" onclick="switchView('settings')"><i data-lucide="database"></i> Ouvrir Paramètres → SQL</button>` : ''}
+          <button class="btn btn-secondary" onclick="loadFromSupabase(false)"><i data-lucide="refresh-cw"></i> Réessayer</button>
+        </div>
+      </div>`;
+    lucide.createIcons({ nodes: [errCard] });
+    if (!silent) showToast('Erreur Supabase : ' + e.message, 'error');
     return false;
   } finally { hideSyncBanner(); setSyncBadgeLoading(false); }
 }
@@ -2907,6 +2926,19 @@ function syncWeights(changed) {
   updateWinnersPreview();
 }
 
+// Cache des valeurs max pour le score composite — calculé une seule fois
+let _compositeMax = null;
+function getCompositeMax() {
+  if (_compositeMax) return _compositeMax;
+  // Utilise reduce au lieu de Math.max(...array) — évite le stack overflow sur 39K clients
+  _compositeMax = {
+    a: clients.reduce((m, x) => Math.max(m, x.ptsAmount || 0), 1),
+    f: clients.reduce((m, x) => Math.max(m, (x.ptsFreq || 0) + (x.historicalPtsFreq || 0)), 1),
+    h: clients.reduce((m, x) => Math.max(m, (x.historicalPoints || 0) + (x.historicalPtsFreq || 0)), 1)
+  };
+  return _compositeMax;
+}
+
 function getClientScore(c, sortBy) {
   if (sortBy === 'total')   return c.totalPoints || 0;
   if (sortBy === 'amount')  return c.ptsAmount || 0;
@@ -2916,9 +2948,7 @@ function getClientScore(c, sortBy) {
     const wA = parseInt(document.getElementById('w-w-amount')?.value  || 40) / 100;
     const wF = parseInt(document.getElementById('w-w-freq')?.value    || 30) / 100;
     const wH = parseInt(document.getElementById('w-w-history')?.value || 30) / 100;
-    const maxA = Math.max(...clients.map(x => x.ptsAmount || 0), 1);
-    const maxF = Math.max(...clients.map(x => (x.ptsFreq || 0) + (x.historicalPtsFreq || 0)), 1);
-    const maxH = Math.max(...clients.map(x => (x.historicalPoints || 0) + (x.historicalPtsFreq || 0)), 1);
+    const { a: maxA, f: maxF, h: maxH } = getCompositeMax();
     return Math.round(
       wA * ((c.ptsAmount || 0) / maxA) * 1000 +
       wF * (((c.ptsFreq || 0) + (c.historicalPtsFreq || 0)) / maxF) * 1000 +
