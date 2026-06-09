@@ -464,7 +464,7 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
     <a class="topbar-logo" href="#">
       <img src="https://img.mailinblue.com/7659215/images/content_library/original/6a02c8c77a289d644f875159.png"
            alt="Mass'In"
-           style="height:100px;width:auto;object-fit:contain;"
+           style="height:38px;width:auto;object-fit:contain;"
            onerror="this.style.display='none';this.nextElementSibling.style.display='';">
       <div style="display:none;">
         <div class="brand-name">Mass'In</div>
@@ -1842,6 +1842,10 @@ function updateSyncBadge() {
 }
 
 // ===================== GOOGLE SHEETS SYNC =====================
+// URL Apps Script embarquée — fonctionne sur tous les appareils sans configuration
+// Remplacez cette valeur si vous changez de déploiement Apps Script
+const DEFAULT_GS_URL = 'https://script.google.com/macros/s/AKfycbwJwJ2tEJkoI4L3scgqC3hXfmC4PldcBb47p0W8QAX4eOPwZaFI7qfKOEZU04Bkh-7p/exec';
+
 let GS_URL = '';
 
 const APPS_SCRIPT_CODE = `// ================================================
@@ -2856,14 +2860,24 @@ function renderWinners(winners, animated) {
 
 // ===================== INIT =====================
 (function init() {
-  loadLocal();
-  GS_URL = localStorage.getItem('massin_gs_url') || '';
+  // Résoudre l'URL : localStorage > URL embarquée dans le HTML
+  GS_URL = localStorage.getItem('massin_gs_url') || DEFAULT_GS_URL || '';
+  if (GS_URL && !localStorage.getItem('massin_gs_url')) {
+    // Première ouverture sur cet appareil — sauvegarder l'URL en local
+    localStorage.setItem('massin_gs_url', GS_URL);
+  }
+
+  const hasLocal = loadLocal();
   renderDashboard();
   updateDynamicLabels();
   updateSyncBadge();
   lucide.createIcons();
-  // Auto-load supprimé — évite les conflits de requêtes concurrentes.
-  // Utilisez le bouton "Charger depuis Sheets" dans l'onglet Paramètres.
+
+  if (!hasLocal && GS_URL) {
+    // Nouvel appareil ou cache vidé → charger automatiquement depuis Drive
+    showSyncBanner('Chargement des données…', 'Premier lancement sur cet appareil');
+    setTimeout(() => loadFromSheets(true), 1000);
+  }
 })();
 </script>
 </body>
