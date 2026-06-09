@@ -1894,29 +1894,26 @@ function initSettingsView() {
   lucide.createIcons();
 }
 
-function updateSyncBadge() {
+function setBadge(cls, icon, label) {
   const badge = document.getElementById('sync-badge');
-  const text  = document.getElementById('sync-badge-text');
   if (!badge) return;
   badge.style.display = '';
+  badge.className = 'sync-badge ' + cls;
+  badge.innerHTML = '<i data-lucide="' + icon + '"></i><span id="sync-badge-text">' + label + '</span>';
+  lucide.createIcons({ nodes: [badge] });
+}
+function updateSyncBadge() {
   const syncedAt = localStorage.getItem('supa_synced_at');
   const savedAt  = localStorage.getItem('massin_saved_at');
-  const gsUrl    = localStorage.getItem('supa_url');
-  if (!gsUrl) {
-    badge.className = 'sync-badge warn';
-    badge.querySelector('i').setAttribute('data-lucide', 'hard-drive');
-    text.textContent = 'Local uniquement';
+  const supaOk   = !!(localStorage.getItem('supa_url') && localStorage.getItem('supa_key'));
+  if (!supaOk) {
+    setBadge('warn', 'hard-drive', 'Local uniquement');
   } else if (syncedAt && savedAt && syncedAt >= savedAt) {
-    badge.className = 'sync-badge ok';
-    badge.querySelector('i').setAttribute('data-lucide', 'cloud-check');
     const d = new Date(syncedAt);
-    text.textContent = `Sheets ${d.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})}`;
+    setBadge('ok', 'cloud-check', 'Supabase ' + d.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}));
   } else {
-    badge.className = 'sync-badge warn';
-    badge.querySelector('i').setAttribute('data-lucide', 'cloud-off');
-    text.textContent = 'Sheets désynchronisé';
+    setBadge('warn', 'cloud-off', 'Supabase non sync');
   }
-  lucide.createIcons({ nodes: [badge] });
 }
 
 // ===================== SUPABASE SYNC =====================
@@ -2108,18 +2105,8 @@ function saveSupaConfig() {
 }
 
 function setSyncBadgeLoading(on) {
-  const badge = document.getElementById('sync-badge');
-  if (!badge) return;
-  if (on) {
-    badge.className = 'sync-badge warn spin';
-    badge.querySelector('i').setAttribute('data-lucide', 'loader');
-    const t = document.getElementById('sync-badge-text');
-    if (t) t.textContent = 'Sync…';
-    lucide.createIcons({ nodes: [badge] });
-  } else {
-    badge.classList.remove('spin');
-    updateSyncBadge();
-  }
+  if (on) setBadge('warn spin', 'loader', 'Sync…');
+  else updateSyncBadge();
 }
 
 // Génère un index.html avec les identifiants Supabase embarqués
@@ -2315,6 +2302,13 @@ function processRows(rows, type, resultId) {
   let added = 0, updated = 0, skipped = 0;
   const t0 = Date.now();
 
+  // Pour l'import historique (legacy) : réinitialiser la base pour éviter les doublons
+  // lors de re-imports répétés (sinon les clients s'accumulent : 39K → 79K → 118K…)
+  if (type === 'legacy') {
+    clients = []; purchases = [];
+    dbLog('info', 'Mode legacy — base réinitialisée avant import');
+  }
+
   // Maps de lookup O(1) — construites UNE SEULE FOIS avant la boucle
   // clients.find() dans la boucle = O(n) × 55K lignes = ~1 milliard d'ops → trop lent
   const emailMap = new Map();
@@ -2346,10 +2340,10 @@ function processRows(rows, type, resultId) {
     if (!name && !email) { skipped++; continue; }
 
     // Lookup O(1) via Map au lieu de clients.find() O(n)
-    let existing = null;
-    if (email) existing = emailMap.get(email.toLowerCase());
-    if (!existing && phone) existing = phoneMap.get(phone);
-    if (!existing && name)  existing = nameMap.get(name.toLowerCase().trim());
+  let existing = null;
+  if (email) existing = emailMap.get(email.toLowerCase());
+  if (!existing && phone) existing = phoneMap.get(phone);
+  if (!existing && name)  existing = nameMap.get(name.toLowerCase().trim());
 
     if (existing) {
       if (amount > 0 && type === 'monthly') {
