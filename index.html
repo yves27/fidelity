@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300..700&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 /* ===================== DESIGN TOKENS ===================== */
 :root, [data-theme="light"] {
@@ -613,7 +614,7 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
           <p><strong>Glissez votre fichier CSV ODOO ici</strong></p>
           <p>ou cliquez pour parcourir vos fichiers</p>
         </div>
-        <input type="file" id="file-legacy" accept=".csv,.txt" style="display:none;" onchange="handleFileImport(this,'legacy')">
+        <input type="file" id="file-legacy" accept=".csv,.txt,.xlsx,.xls" style="display:none;" onchange="handleFileImport(this,'legacy')">
         <div id="import-legacy-result" class="mt-4"></div>
       </div>
 
@@ -629,7 +630,7 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
           <p><strong>Glissez votre fichier CSV des ventes ici</strong></p>
           <p>ou cliquez pour parcourir vos fichiers</p>
         </div>
-        <input type="file" id="file-monthly" accept=".csv,.txt" style="display:none;" onchange="handleFileImport(this,'monthly')">
+        <input type="file" id="file-monthly" accept=".csv,.txt,.xlsx,.xls" style="display:none;" onchange="handleFileImport(this,'monthly')">
         <div id="import-monthly-result" class="mt-4"></div>
       </div>
     </div>
@@ -885,6 +886,7 @@ a, button, [role="button"], input, textarea, select { transition: color var(--tr
   <i data-lucide="loader"></i>
   <span id="sync-banner-text">Synchronisation en cours…</span>
   <span class="sync-step" id="sync-banner-step"></span>
+  <button onclick="hideSyncBanner();_releaseLock();" style="margin-left:auto;background:rgba(255,255,255,0.2);border:none;color:#fff;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;">✕ Annuler</button>
 </div>
 <div class="toast-container" id="toast-container"></div>
 
@@ -1866,6 +1868,20 @@ async function testGSConnection() {
   }
 }
 
+// Verrou : une seule opération Drive à la fois
+let _syncLock = false;
+
+function _acquireLock(label) {
+  if (_syncLock) {
+    showToast(`Une synchronisation est déjà en cours — attendez qu'elle se termine.`, 'info');
+    dbLog('warn', `${label} bloqué — verrou actif`);
+    return false;
+  }
+  _syncLock = true;
+  return true;
+}
+function _releaseLock() { _syncLock = false; }
+
 function showSyncBanner(text, step = '') {
   const b = document.getElementById('sync-loading-banner');
   const t = document.getElementById('sync-banner-text');
@@ -1882,51 +1898,48 @@ function hideSyncBanner() {
 }
 
 async function syncToSheets(silent = false) {
+  if (!_acquireLock('syncToSheets')) return;
   const url = localStorage.getItem('massin_gs_url') || GS_URL || '';
-  if (!url) { showToast('URL Apps Script non configurée — allez dans Paramètres.', 'error'); return; }
+  if (!url) { _releaseLock(); showToast('URL Apps Script non configurée.', 'error'); return; }
   if (!silent) showSyncBanner('Sauvegarde vers Google Drive…', `${fmtNum(clients.length)} clients`);
   setSyncBadgeLoading(true);
-  dbLog('info', `syncToSheets — ${clients.length} clients, ${purchases.length} achats`);
+  dbLog('info', `syncToSheets — ${clients.length} clients`);
   try {
-    // Compression : champs courts + suppression des valeurs vides → réduit ~70% du poids
     const payload = { action: 'sync', c: minifyClients(clients), p: purchases, v: 2 };
     const body    = JSON.stringify(payload);
-    dbLog('info', `Payload compressé : ${Math.round(body.length/1024)} KB (vs ~${Math.round(JSON.stringify(clients).length/1024)}KB non compressé)`);
-    const res = await dbFetch('SYNC_POST', url, {
+    dbLog('info', `Payload : ${Math.round(body.length/1024)} KB compressé`);
+    const res  = await dbFetch('SYNC_POST', url, {
       method: 'POST', mode: 'cors', redirect: 'follow',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body
-    });
+    }, 25000);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (data.error) throw new Error(data.error);
-    dbLog('ok', `Sync OK — savedAt: ${data.savedAt || '?'}, count: ${data.count || '?'}`);
+    dbLog('ok', `Sync OK — count: ${data.count}`);
     localStorage.setItem('massin_gs_synced_at', new Date().toISOString());
     if (!silent) showToast(`✅ ${fmtNum(clients.length)} clients sauvegardés.`, 'success');
-    initSettingsView();
-    updateSyncBadge();
+    initSettingsView(); updateSyncBadge();
   } catch(e) {
-    dbLog('err', `syncToSheets échoué : ${e.message}`);
+    dbLog('err', `syncToSheets : ${e.message}`);
     if (!silent) showToast(`Erreur : ${e.message}`, 'error');
-    const el = document.getElementById('gs-last-sync');
-    if (el) el.innerHTML = `<span style="color:var(--color-error)">⚠️ ${e.message}</span>`;
-  } finally { hideSyncBanner(); setSyncBadgeLoading(false); }
+  } finally { hideSyncBanner(); setSyncBadgeLoading(false); _releaseLock(); }
 }
 
 async function loadFromSheets(silent = false) {
+  if (!_acquireLock('loadFromSheets')) return;
   const url = localStorage.getItem('massin_gs_url') || GS_URL || '';
-  if (!url) { if (!silent) showToast('URL Apps Script non configurée.', 'error'); return; }
+  if (!url) { _releaseLock(); if (!silent) showToast('URL Apps Script non configurée.', 'error'); return; }
   if (!silent) showSyncBanner('Chargement depuis Google Drive…', 'Connexion en cours');
   setSyncBadgeLoading(true);
   dbLog('info', `loadFromSheets (silent=${silent})`);
   try {
-    const res  = await dbFetch('LOAD_GET', url, { mode: 'cors', redirect: 'follow' });
+    const res  = await dbFetch('LOAD_GET', url, { mode: 'cors', redirect: 'follow' }, 25000);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     if (!silent) showSyncBanner('Chargement depuis Google Drive…', 'Traitement des données');
     const text = await res.text();
     dbLog('info', `Réponse : ${Math.round(text.length/1024)} KB`);
     const raw  = JSON.parse(text);
     if (raw.error) throw new Error(raw.error);
-    // Support format compressé (v:2) ET format classique
     const data = raw.v === 2
       ? { clients: expandClients(raw.c || []), purchases: raw.p || [] }
       : { clients: raw.clients || [],          purchases: raw.purchases || [] };
@@ -1940,13 +1953,11 @@ async function loadFromSheets(silent = false) {
     initSettingsView();
     updateSyncBadge();
     if (!silent) showToast(`✅ ${fmtNum(clients.length)} clients chargés.`, 'success');
-    else         showToast(`✅ Données à jour — ${fmtNum(clients.length)} clients.`, 'success');
+    else if (clients.length > 0) showToast(`✅ Données à jour — ${fmtNum(clients.length)} clients.`, 'success');
   } catch(e) {
-    dbLog('err', `loadFromSheets échoué : ${e.message}`);
+    dbLog('err', `loadFromSheets : ${e.message}`);
     if (!silent) showToast(`Erreur : ${e.message}`, 'error');
-    const el = document.getElementById('gs-last-sync');
-    if (el) el.innerHTML = `<span style="color:var(--color-error)">⚠️ ${e.message}</span>`;
-  } finally { hideSyncBanner(); setSyncBadgeLoading(false); }
+  } finally { hideSyncBanner(); setSyncBadgeLoading(false); _releaseLock(); }
 }
 
 function setSyncBadgeLoading(on) {
@@ -2054,82 +2065,155 @@ function handleDrop(e, type) {
 }
 function handleFileImport(input, type) { if (input.files[0]) processCSV(input.files[0], type); }
 
-function processCSV(file, type) {
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const text = e.target.result;
-    const lines = text.split(/\r?\n/).filter(l => l.trim());
-    if (lines.length < 2) { showToast('Fichier vide ou invalide.', 'error'); return; }
-    const sep = lines[0].includes(';') ? ';' : ',';
-    const headers = lines[0].split(sep).map(h => h.trim().toLowerCase().replace(/[^a-z0-9_]/g,''));
-    const getCol = (row, ...keys) => { for (const k of keys) { const idx = headers.findIndex(h => h.includes(k)); if (idx >= 0) return row[idx]?.trim() || ''; } return ''; };
-
-    let added = 0, updated = 0, skipped = 0;
-    for (let i = 1; i < lines.length; i++) {
-      const row = lines[i].split(sep).map(c => c.trim().replace(/^["']|["']$/g,''));
-      const name       = getCol(row, 'nom', 'name', 'client');
-      const email      = getCol(row, 'email', 'mail', 'courriel');
-      const phone      = getCol(row, 'telephone', 'phone', 'tel', 'mobile');
-      const amountStr  = getCol(row, 'montant', 'amount', 'total', 'ca');
-      const amount     = parseFloat(amountStr.replace(/[^0-9.]/g,'')) || 0;
-      // Support year-only column (exports ODOO sans date précise)
-      const yearStr    = getCol(row, 'annee', 'year', 'an', 'periode', 'exercice');
-      const dateStr    = getCol(row, 'date', 'jour');
-      // Build best available date
-      let finalDate;
-      if (dateStr && dateStr.match(/\d{4}/)) {
-        finalDate = dateStr;
-      } else if (yearStr && yearStr.match(/^\d{4}$/)) {
-        finalDate = `${yearStr}-01-01`;   // année seule → 1er janvier de l'année
-      } else {
-        finalDate = new Date().toISOString().split('T')[0];
-      }
-
-      if (!name && !email) { skipped++; continue; }
-
-      // Match existing — email > téléphone > NOM (fallback ODOO sans contact)
-      let existing = null;
-      if (email) existing = clients.find(c => c.email && c.email.toLowerCase() === email.toLowerCase());
-      if (!existing && phone) existing = clients.find(c => c.phone === phone);
-      if (!existing && name) existing = clients.find(c => c.name.toLowerCase().trim() === name.toLowerCase().trim());
-
-      if (existing) {
-        if (amount > 0 && type === 'monthly') {
-          const pid = Math.max(0, ...purchases.map(p => p.id)) + 1;
-          purchases.push({ id: pid, clientId: existing.id, amount, date: finalDate });
-          recalcClientPoints(existing.id);
-        } else if (amount > 0 && type === 'legacy') {
-          existing.historicalPoints = (existing.historicalPoints || 0) + getAmountPts(amount);
-          recalcClientPoints(existing.id);
-        }
-        updated++;
-      } else {
-        const newId = Math.max(0, ...clients.map(c => c.id), 0) + 1;
-        const histPts = type === 'legacy' ? getAmountPts(amount) : 0;
-        clients.push({ id: newId, name: name || email, email, phone, type: type === 'legacy' ? 'ancien' : 'nouveau', historicalPoints: histPts, ptsAmount: 0, ptsFreq: 0, totalPoints: histPts });
-        if (type === 'monthly' && amount > 0) {
-          const pid = Math.max(0, ...purchases.map(p => p.id)) + 1;
-          purchases.push({ id: pid, clientId: newId, amount, date: finalDate });
-          recalcClientPoints(newId);
-        }
-        added++;
-      }
-    }
-    saveLocal(); // persist après import
-    const resultId = type === 'legacy' ? 'import-legacy-result' : 'import-monthly-result';
-    document.getElementById(resultId).innerHTML = `
-      <div class="alert alert-success"><i data-lucide="check-circle"></i>
-        <div><strong>Import terminé !</strong><br>
-        ✅ ${added} nouveau(x) client(s) ajouté(s)<br>
-        🔄 ${updated} client(s) existant(s) mis à jour<br>
-        ⏭️ ${skipped} ligne(s) ignorée(s) (données manquantes)</div>
-      </div>`;
-    lucide.createIcons({ nodes: [document.getElementById(resultId)] });
-    renderDashboard();
-    showToast(`Import réussi : ${added} ajoutés, ${updated} mis à jour.`, 'success');
-  };
-  reader.readAsText(file, 'UTF-8');
+// ── File import: CSV + XLSX ──────────────────────────────────────────────────
+function handleFileImport(input, type) {
+  if (input.files[0]) processFile(input.files[0], type);
 }
+function handleDrop(e, type) {
+  e.preventDefault();
+  const zoneId = type === 'legacy' ? 'drop-zone-legacy' : 'drop-zone-monthly';
+  document.getElementById(zoneId).classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) processFile(file, type);
+}
+
+function processFile(file, type) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  dbLog('info', `Import fichier : ${file.name} (${Math.round(file.size/1024)}KB)`);
+  const resultId = type === 'legacy' ? 'import-legacy-result' : 'import-monthly-result';
+  document.getElementById(resultId).innerHTML =
+    `<div class="alert alert-info"><i data-lucide="loader"></i><div>Lecture du fichier en cours…</div></div>`;
+  lucide.createIcons({ nodes: [document.getElementById(resultId)] });
+
+  const reader = new FileReader();
+  reader.onerror = () => {
+    showToast('Erreur de lecture du fichier.', 'error');
+    dbLog('err', 'FileReader error: ' + reader.error);
+  };
+  reader.onload = (e) => {
+    try {
+      let rows; // tableau de tableaux : rows[0] = headers, rows[1..] = données
+      if (ext === 'xlsx' || ext === 'xls' || ext === 'ods') {
+        // Parsing XLSX via SheetJS
+        if (typeof XLSX === 'undefined') {
+          showToast('Bibliothèque XLSX non chargée — vérifiez votre connexion internet.', 'error');
+          return;
+        }
+        const wb = XLSX.read(e.target.result, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        dbLog('info', `XLSX lu : ${rows.length} lignes, feuille "${wb.SheetNames[0]}"`);
+      } else {
+        // Parsing CSV / TXT
+        const text  = new TextDecoder('utf-8').decode(e.target.result);
+        const lines = text.split(/\r?\n/).filter(l => l.trim());
+        const sep   = lines[0].includes(';') ? ';' : ',';
+        rows = lines.map(l => l.split(sep).map(c => c.trim().replace(/^["']|["']$/g, '')));
+        dbLog('info', `CSV lu : ${rows.length} lignes, séparateur "${sep}"`);
+      }
+
+      if (rows.length < 2) { showToast('Fichier vide ou sans données.', 'error'); return; }
+      processRows(rows, type, resultId);
+    } catch(err) {
+      showToast('Erreur de parsing : ' + err.message, 'error');
+      dbLog('err', 'Parse error: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function processRows(rows, type, resultId) {
+  // Normaliser les en-têtes
+  const rawHeaders = rows[0].map(h => String(h).trim().toLowerCase().replace(/[^a-z0-9_]/g,''));
+  const getCol = (row, ...keys) => {
+    for (const k of keys) {
+      const idx = rawHeaders.findIndex(h => h.includes(k));
+      if (idx >= 0 && row[idx] !== undefined) return String(row[idx]).trim();
+    }
+    return '';
+  };
+
+  let added = 0, updated = 0, skipped = 0;
+  const t0 = Date.now();
+
+  for (let i = 1; i < rows.length; i++) {
+    const row      = rows[i];
+    const name     = getCol(row, 'nom', 'name', 'client', 'raison');
+    const email    = getCol(row, 'email', 'mail', 'courriel');
+    const phone    = getCol(row, 'telephone', 'phone', 'tel', 'mobile');
+    const amountRaw= getCol(row, 'montant', 'amount', 'total', 'ca', 'chiffre');
+    const amount   = parseFloat(String(amountRaw).replace(/[^0-9.]/g,'')) || 0;
+    const yearStr  = getCol(row, 'annee', 'year', 'an', 'periode', 'exercice');
+    const dateStr  = getCol(row, 'date', 'jour');
+
+    let finalDate;
+    if (dateStr && String(dateStr).match(/\d{4}/)) finalDate = String(dateStr).split('T')[0];
+    else if (yearStr && String(yearStr).match(/^\d{4}$/)) finalDate = `${yearStr}-01-01`;
+    else finalDate = new Date().toISOString().split('T')[0];
+
+    if (!name && !email) { skipped++; continue; }
+
+    let existing = null;
+    if (email) existing = clients.find(c => c.email && c.email.toLowerCase() === email.toLowerCase());
+    if (!existing && phone) existing = clients.find(c => c.phone === phone);
+    if (!existing && name) existing = clients.find(c => c.name.toLowerCase().trim() === name.toLowerCase().trim());
+
+    if (existing) {
+      if (amount > 0 && type === 'monthly') {
+        const pid = Math.max(0, ...purchases.map(p => p.id), 0) + 1;
+        purchases.push({ id: pid, clientId: existing.id, amount, date: finalDate });
+        // Pour mensuel on recalcule (peu de clients)
+        recalcClientPoints(existing.id);
+      } else if (amount > 0 && type === 'legacy') {
+        existing.historicalPoints = (existing.historicalPoints || 0) + getAmountPts(amount);
+        // PAS de recalcClientPoints ici — totalPoints mis à jour en batch à la fin
+      }
+      updated++;
+    } else {
+      const newId   = Math.max(0, ...clients.map(c => c.id), 0) + 1;
+      const histPts = type === 'legacy' ? getAmountPts(amount) : 0;
+      clients.push({
+        id: newId, name: name || email, email, phone,
+        type: type === 'legacy' ? 'ancien' : 'nouveau',
+        historicalPoints: histPts, ptsAmount: 0, ptsFreq: 0,
+        totalPoints: histPts  // ← direct, pas de recalcClientPoints
+      });
+      if (type === 'monthly' && amount > 0) {
+        const pid = Math.max(0, ...purchases.map(p => p.id), 0) + 1;
+        purchases.push({ id: pid, clientId: newId, amount, date: finalDate });
+        recalcClientPoints(newId);
+      }
+      added++;
+    }
+  }
+
+  // Mise à jour finale en batch pour le mode legacy (évite O(n²))
+  if (type === 'legacy') {
+    clients.forEach(c => {
+      c.totalPoints = (c.historicalPoints || 0) + (c.ptsAmount || 0) + (c.ptsFreq || 0);
+    });
+  }
+
+  const elapsed = Date.now() - t0;
+  dbLog('ok', `Import terminé en ${elapsed}ms — +${added} ajoutés, ~${updated} mis à jour, ${skipped} ignorés`);
+  saveLocal();
+
+  document.getElementById(resultId).innerHTML = `
+    <div class="alert alert-success"><i data-lucide="check-circle"></i>
+      <div><strong>Import terminé !</strong><br>
+      ✅ ${added} nouveau(x) client(s) ajouté(s)<br>
+      🔄 ${updated} client(s) existant(s) mis à jour<br>
+      ⏭️ ${skipped} ligne(s) ignorée(s) (données manquantes)<br>
+      <span style="font-size:0.8em;opacity:0.8;">⏱ ${elapsed}ms — ${rows.length-1} lignes traitées</span>
+      </div>
+    </div>`;
+  lucide.createIcons({ nodes: [document.getElementById(resultId)] });
+  renderDashboard();
+  showToast(`Import réussi : ${added} ajoutés, ${updated} mis à jour.`, 'success');
+}
+
+// Alias pour compatibilité (anciens appels à processCSV)
+function processCSV(file, type) { processFile(file, type); }
 
 // ===================== EXPORT CSV =====================
 function exportCSV() {
@@ -2351,18 +2435,14 @@ function expandClients(arr) {
 
 // ===================== INIT =====================
 (function init() {
-  loadLocal();   // affichage immédiat depuis localStorage (< 1ms)
+  loadLocal();
   GS_URL = localStorage.getItem('massin_gs_url') || '';
   renderDashboard();
   updateDynamicLabels();
   updateSyncBadge();
   lucide.createIcons();
-
-  // Rafraîchissement silencieux depuis Google Drive à chaque ouverture de page
-  // Les données localStorage s'affichent tout de suite, puis se mettent à jour
-  if (GS_URL) {
-    setTimeout(() => loadFromSheets(true), 1500);
-  }
+  // Auto-load supprimé — évite les conflits de requêtes concurrentes.
+  // Utilisez le bouton "Charger depuis Sheets" dans l'onglet Paramètres.
 })();
 </script>
 </body>
