@@ -1,0 +1,3197 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mass'In — Gestion des Points Fidélité</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300..700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* ===================== DESIGN TOKENS ===================== */
+:root, [data-theme="light"] {
+  --color-bg: #f7f6f2;
+  --color-surface: #f9f8f5;
+  --color-surface-2: #fbfbf9;
+  --color-surface-offset: #f3f0ec;
+  --color-surface-offset-2: #edeae5;
+  --color-surface-dynamic: #e6e4df;
+  --color-divider: #dcd9d5;
+  --color-border: #d4d1ca;
+  --color-text: #28251d;
+  --color-text-muted: #7a7974;
+  --color-text-faint: #bab9b4;
+  --color-text-inverse: #f9f8f4;
+  /* Brand accent — Mass'In Gold */
+  --color-primary: #b8860b;
+  --color-primary-hover: #9a7009;
+  --color-primary-active: #7a5807;
+  --color-primary-highlight: #f5eedc;
+  --color-success: #437a22;
+  --color-success-hover: #2e5c10;
+  --color-success-highlight: #d4dfcc;
+  --color-error: #a12c2c;
+  --color-error-hover: #7d1e1e;
+  --color-error-highlight: #e8d0d0;
+  --color-warning: #964219;
+  --color-warning-highlight: #f0e0d4;
+  --color-blue: #006494;
+  --color-blue-highlight: #c6d8e4;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px oklch(0.2 0.01 80 / 0.06);
+  --shadow-md: 0 4px 12px oklch(0.2 0.01 80 / 0.08);
+  --shadow-lg: 0 12px 32px oklch(0.2 0.01 80 / 0.12);
+  --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem; --space-4: 1rem;
+  --space-5: 1.25rem; --space-6: 1.5rem; --space-8: 2rem; --space-10: 2.5rem;
+  --space-12: 3rem; --space-16: 4rem;
+  --text-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);
+  --text-sm: clamp(0.875rem, 0.8rem + 0.35vw, 1rem);
+  --text-base: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+  --text-lg: clamp(1.125rem, 1rem + 0.75vw, 1.5rem);
+  --text-xl: clamp(1.5rem, 1.2rem + 1.25vw, 2.25rem);
+  --text-2xl: clamp(2rem, 1.2rem + 2.5vw, 3rem);
+  --transition-interactive: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  --font-display: 'Instrument Serif', Georgia, serif;
+  --font-body: 'Inter', 'Helvetica Neue', sans-serif;
+  --content-default: 1100px;
+}
+[data-theme="dark"] {
+  --color-bg: #171614;
+  --color-surface: #1c1b19;
+  --color-surface-2: #201f1d;
+  --color-surface-offset: #1d1c1a;
+  --color-surface-offset-2: #22211f;
+  --color-surface-dynamic: #2d2c2a;
+  --color-divider: #262523;
+  --color-border: #393836;
+  --color-text: #cdccca;
+  --color-text-muted: #797876;
+  --color-text-faint: #5a5957;
+  --color-text-inverse: #2b2a28;
+  --color-primary: #d4a843;
+  --color-primary-hover: #c4942f;
+  --color-primary-active: #a87820;
+  --color-primary-highlight: #3d3420;
+  --color-success: #6daa45;
+  --color-success-hover: #4d8f25;
+  --color-success-highlight: #3a4435;
+  --color-error: #dd6666;
+  --color-error-hover: #c24a4a;
+  --color-error-highlight: #4c3535;
+  --color-warning: #bb653b;
+  --color-warning-highlight: #4a3020;
+  --color-blue: #5591c7;
+  --color-blue-highlight: #3a4550;
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.2);
+  --shadow-md: 0 4px 12px oklch(0 0 0 / 0.3);
+  --shadow-lg: 0 12px 32px oklch(0 0 0 / 0.4);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme]) { --color-bg:#171614; --color-surface:#1c1b19; --color-surface-2:#201f1d; --color-surface-offset:#1d1c1a; --color-surface-offset-2:#22211f; --color-surface-dynamic:#2d2c2a; --color-divider:#262523; --color-border:#393836; --color-text:#cdccca; --color-text-muted:#797876; --color-text-faint:#5a5957; --color-text-inverse:#2b2a28; --color-primary:#d4a843; --color-primary-hover:#c4942f; --color-primary-highlight:#3d3420; --color-success:#6daa45; --color-success-highlight:#3a4435; --color-error:#dd6666; --color-error-highlight:#4c3535; --color-warning:#bb653b; --color-warning-highlight:#4a3020; --color-blue:#5591c7; --color-blue-highlight:#3a4550; --shadow-sm:0 1px 2px oklch(0 0 0/.2); --shadow-md:0 4px 12px oklch(0 0 0/.3); --shadow-lg:0 12px 32px oklch(0 0 0/.4); } }
+
+/* ===================== BASE ===================== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-font-smoothing: antialiased; scroll-behavior: smooth; }
+body { min-height: 100dvh; font-family: var(--font-body); font-size: var(--text-base); color: var(--color-text); background: var(--color-bg); }
+img, picture, video, canvas, svg { display: block; max-width: 100%; }
+ul[role="list"] { list-style: none; }
+input, button, textarea, select { font: inherit; color: inherit; }
+h1, h2, h3, h4, h5, h6 { text-wrap: balance; line-height: 1.2; }
+p, li { text-wrap: pretty; }
+button { cursor: pointer; background: none; border: none; }
+table { border-collapse: collapse; width: 100%; }
+:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; border-radius: var(--radius-sm); }
+::selection { background: oklch(from var(--color-primary) l c h / 0.2); }
+a, button, [role="button"], input, textarea, select { transition: color var(--transition-interactive), background var(--transition-interactive), border-color var(--transition-interactive), box-shadow var(--transition-interactive); }
+.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border-width:0; }
+
+/* ===================== LAYOUT ===================== */
+.app { display: flex; flex-direction: column; min-height: 100dvh; }
+
+/* TOP BAR */
+.topbar {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-3) var(--space-6);
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-4);
+}
+.topbar-brand { display: flex; align-items: center; gap: var(--space-3); }
+.topbar-logo { display: flex; align-items: center; gap: var(--space-2); text-decoration: none; color: var(--color-text); }
+.topbar-logo-icon svg { width: 36px; height: 36px; }
+.brand-name { font-family: var(--font-display); font-size: var(--text-lg); color: var(--color-primary); line-height: 1; }
+.brand-sub { font-size: var(--text-xs); color: var(--color-text-muted); font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; }
+.topbar-actions { display: flex; align-items: center; gap: var(--space-2); }
+.btn-icon { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: var(--radius-md); color: var(--color-text-muted); }
+.btn-icon:hover { background: var(--color-surface-offset); color: var(--color-text); }
+
+/* NAV TABS */
+.nav-tabs {
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  padding: 0 var(--space-6);
+  display: flex; gap: 0; overflow-x: auto;
+}
+.nav-tab {
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm); font-weight: 500;
+  color: var(--color-text-muted);
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  transition: color var(--transition-interactive), border-color var(--transition-interactive);
+}
+.nav-tab:hover { color: var(--color-text); }
+.nav-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+.nav-tab i { width: 16px; height: 16px; }
+
+/* MAIN CONTENT */
+.main { flex: 1; padding: var(--space-6); max-width: var(--content-default); margin: 0 auto; width: 100%; }
+
+/* VIEWS */
+.view { display: none; }
+.view.active { display: block; }
+
+/* CARDS */
+.card {
+  background: var(--color-surface);
+  border: 1px solid oklch(from var(--color-text) l c h / 0.08);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-6);
+}
+.card-title { font-size: var(--text-lg); font-weight: 600; margin-bottom: var(--space-4); display: flex; align-items: center; gap: var(--space-2); }
+.card-title i { width: 20px; height: 20px; color: var(--color-primary); }
+
+/* GRID */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4); }
+@media (max-width: 900px) { .grid-3, .grid-4 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 600px) { .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; } }
+
+/* STAT CARDS */
+.stat-card {
+  background: var(--color-surface);
+  border: 1px solid oklch(from var(--color-text) l c h / 0.08);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5) var(--space-6);
+  box-shadow: var(--shadow-sm);
+}
+.stat-label { font-size: var(--text-xs); font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--space-2); }
+.stat-value { font-size: var(--text-xl); font-weight: 700; color: var(--color-text); font-variant-numeric: tabular-nums; line-height: 1; }
+.stat-sub { font-size: var(--text-xs); color: var(--color-text-muted); margin-top: var(--space-1); }
+.stat-card.gold { border-color: var(--color-primary); background: linear-gradient(135deg, var(--color-primary-highlight) 0%, var(--color-surface) 60%); }
+.stat-card.gold .stat-value { color: var(--color-primary); }
+
+/* BUTTONS */
+.btn { display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-5); font-size: var(--text-sm); font-weight: 600; border-radius: var(--radius-md); cursor: pointer; border: none; }
+.btn-primary { background: var(--color-primary); color: #fff; }
+.btn-primary:hover { background: var(--color-primary-hover); }
+.btn-secondary { background: var(--color-surface-offset); color: var(--color-text); border: 1px solid var(--color-border); }
+.btn-secondary:hover { background: var(--color-surface-dynamic); }
+.btn-success { background: var(--color-success); color: #fff; }
+.btn-success:hover { background: var(--color-success-hover); }
+.btn-danger { background: var(--color-error); color: #fff; }
+.btn i { width: 16px; height: 16px; }
+.btn-sm { padding: var(--space-1) var(--space-3); font-size: var(--text-xs); }
+
+/* FORMS */
+.form-group { display: flex; flex-direction: column; gap: var(--space-1); margin-bottom: var(--space-4); }
+.form-label { font-size: var(--text-sm); font-weight: 600; color: var(--color-text); }
+.form-hint { font-size: var(--text-xs); color: var(--color-text-muted); }
+.form-input, .form-select, .form-textarea {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  width: 100%;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus { outline: 2px solid var(--color-primary); outline-offset: 0; border-color: transparent; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+@media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
+
+/* BADGES */
+.badge { display: inline-flex; align-items: center; gap: var(--space-1); padding: 2px var(--space-2); border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: 600; }
+.badge-gold { background: var(--color-primary-highlight); color: var(--color-primary); }
+.badge-green { background: var(--color-success-highlight); color: var(--color-success); }
+.badge-blue { background: var(--color-blue-highlight); color: var(--color-blue); }
+.badge-orange { background: var(--color-warning-highlight); color: var(--color-warning); }
+.badge-red { background: var(--color-error-highlight); color: var(--color-error); }
+
+/* TABLE */
+.table-wrap { overflow-x: auto; border-radius: var(--radius-lg); border: 1px solid var(--color-border); }
+.data-table { font-size: var(--text-sm); }
+.data-table th { background: var(--color-surface-offset); font-weight: 600; color: var(--color-text-muted); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.05em; padding: var(--space-3) var(--space-4); text-align: left; border-bottom: 1px solid var(--color-border); white-space: nowrap; }
+.data-table td { padding: var(--space-3) var(--space-4); border-bottom: 1px solid oklch(from var(--color-text) l c h / 0.04); vertical-align: middle; }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: var(--color-surface-offset); }
+.data-table .rank { font-weight: 700; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.data-table .rank.top1 { color: #d4af37; }
+.data-table .rank.top2 { color: #a8a9ad; }
+.data-table .rank.top3 { color: #cd7f32; }
+
+/* PROGRESS BAR */
+.progress-bar { background: var(--color-surface-dynamic); border-radius: var(--radius-full); height: 6px; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: var(--radius-full); background: var(--color-primary); transition: width 0.4s ease; }
+
+/* DIVIDER */
+.divider { height: 1px; background: var(--color-divider); margin: var(--space-6) 0; }
+
+/* SECTION TITLE */
+.section-title { font-size: var(--text-lg); font-weight: 700; margin-bottom: var(--space-4); }
+.section-sub { font-size: var(--text-sm); color: var(--color-text-muted); margin-bottom: var(--space-6); }
+
+/* ALERTS */
+.alert { padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); font-size: var(--text-sm); display: flex; align-items: flex-start; gap: var(--space-2); margin-bottom: var(--space-4); }
+.alert i { width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px; }
+.alert-success { background: var(--color-success-highlight); color: var(--color-success); }
+.alert-warning { background: var(--color-warning-highlight); color: var(--color-warning); }
+.alert-error { background: var(--color-error-highlight); color: var(--color-error); }
+.alert-info { background: var(--color-blue-highlight); color: var(--color-blue); }
+
+/* MODAL */
+.modal-overlay { position: fixed; inset: 0; background: oklch(0 0 0 / 0.5); z-index: 200; display: flex; align-items: center; justify-content: center; padding: var(--space-4); opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal { background: var(--color-surface); border-radius: var(--radius-xl); box-shadow: var(--shadow-lg); padding: var(--space-8); max-width: 540px; width: 100%; max-height: 90dvh; overflow-y: auto; transform: translateY(8px); transition: transform 0.2s ease; }
+.modal-overlay.open .modal { transform: translateY(0); }
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-6); }
+.modal-title { font-size: var(--text-lg); font-weight: 700; }
+.modal-close { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: var(--radius-md); color: var(--color-text-muted); }
+.modal-close:hover { background: var(--color-surface-offset); color: var(--color-text); }
+
+/* SEARCH */
+.search-wrap { position: relative; }
+.search-wrap i { position: absolute; left: var(--space-3); top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--color-text-muted); pointer-events: none; }
+.search-input { padding-left: var(--space-8) !important; }
+
+/* TOP CLIENT PODIUM */
+.podium { display: flex; flex-direction: column; gap: var(--space-3); }
+.podium-item { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); background: var(--color-surface-2); border-radius: var(--radius-lg); border: 1px solid oklch(from var(--color-text) l c h / 0.06); }
+.podium-rank { width: 28px; height: 28px; border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center; font-size: var(--text-xs); font-weight: 800; flex-shrink: 0; }
+.podium-rank.r1 { background: #d4af37; color: #fff; }
+.podium-rank.r2 { background: #a8a9ad; color: #fff; }
+.podium-rank.r3 { background: #cd7f32; color: #fff; }
+.podium-rank.r-other { background: var(--color-surface-dynamic); color: var(--color-text-muted); }
+.podium-info { flex: 1; min-width: 0; }
+.podium-name { font-weight: 600; font-size: var(--text-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.podium-detail { font-size: var(--text-xs); color: var(--color-text-muted); }
+.podium-pts { font-weight: 700; color: var(--color-primary); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+
+/* BAREME */
+.bareme-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+.bareme-card { background: var(--color-surface-offset); border-radius: var(--radius-lg); padding: var(--space-4); }
+.bareme-card h4 { font-size: var(--text-sm); font-weight: 700; margin-bottom: var(--space-3); display: flex; align-items: center; gap: var(--space-2); }
+.bareme-card h4 i { width: 16px; height: 16px; color: var(--color-primary); }
+.bareme-row { display: flex; justify-content: space-between; align-items: center; padding: var(--space-2) 0; border-bottom: 1px solid var(--color-divider); font-size: var(--text-sm); }
+.bareme-row:last-child { border-bottom: none; }
+.bareme-pts { font-weight: 700; color: var(--color-primary); }
+
+/* IMPORT ZONE */
+.import-zone { border: 2px dashed var(--color-border); border-radius: var(--radius-xl); padding: var(--space-12) var(--space-8); text-align: center; background: var(--color-surface-2); transition: border-color var(--transition-interactive), background var(--transition-interactive); cursor: pointer; }
+.import-zone:hover, .import-zone.dragover { border-color: var(--color-primary); background: var(--color-primary-highlight); }
+.import-zone i { width: 40px; height: 40px; color: var(--color-primary); margin: 0 auto var(--space-3); }
+.import-zone p { font-size: var(--text-sm); color: var(--color-text-muted); }
+.import-zone strong { color: var(--color-text); }
+
+/* PILL TABS */
+.pill-tabs { display: flex; background: var(--color-surface-offset); border-radius: var(--radius-full); padding: var(--space-1); gap: var(--space-1); margin-bottom: var(--space-4); width: fit-content; }
+.pill-tab { padding: var(--space-1) var(--space-4); border-radius: var(--radius-full); font-size: var(--text-sm); font-weight: 500; color: var(--color-text-muted); transition: background var(--transition-interactive), color var(--transition-interactive); }
+.pill-tab.active { background: var(--color-surface); color: var(--color-primary); font-weight: 600; box-shadow: var(--shadow-sm); }
+.pill-tab:hover:not(.active) { color: var(--color-text); }
+
+/* EMPTY STATE */
+.empty-state { display: flex; flex-direction: column; align-items: center; text-align: center; padding: var(--space-16) var(--space-8); color: var(--color-text-muted); }
+.empty-state i { width: 48px; height: 48px; color: var(--color-text-faint); margin-bottom: var(--space-4); }
+.empty-state h3 { color: var(--color-text); margin-bottom: var(--space-2); font-size: var(--text-lg); }
+.empty-state p { max-width: 36ch; margin-bottom: var(--space-6); font-size: var(--text-sm); }
+
+/* TOAST */
+.toast-container { position: fixed; top: var(--space-4); right: var(--space-4); z-index: 300; display: flex; flex-direction: column; gap: var(--space-2); pointer-events: none; }
+.toast { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-3) var(--space-4); box-shadow: var(--shadow-lg); font-size: var(--text-sm); font-weight: 500; min-width: 260px; max-width: 360px; pointer-events: all; display: flex; align-items: center; gap: var(--space-2); animation: toastIn 0.25s ease; }
+.toast i { width: 16px; height: 16px; flex-shrink: 0; }
+.toast.success { border-left: 3px solid var(--color-success); }
+.toast.success i { color: var(--color-success); }
+.toast.error { border-left: 3px solid var(--color-error); }
+.toast.error i { color: var(--color-error); }
+.toast.info { border-left: 3px solid var(--color-primary); }
+.toast.info i { color: var(--color-primary); }
+@keyframes toastIn { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
+
+/* HIGHLIGHT ANIMATION */
+@keyframes highlightRow { 0%,100% { background: transparent; } 20%,80% { background: var(--color-primary-highlight); } }
+.highlight-anim { animation: highlightRow 1.5s ease; }
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  .main { padding: var(--space-4); }
+  .topbar { padding: var(--space-3) var(--space-4); }
+  .nav-tabs { padding: 0 var(--space-4); }
+  .bareme-grid { grid-template-columns: 1fr; }
+}
+
+/* POINTS CALCULATOR */
+.calc-box { background: var(--color-primary-highlight); border: 1px solid oklch(from var(--color-primary) l c h / 0.3); border-radius: var(--radius-xl); padding: var(--space-6); text-align: center; }
+.calc-total { font-size: var(--text-2xl); font-weight: 800; color: var(--color-primary); font-variant-numeric: tabular-nums; }
+.calc-breakdown { font-size: var(--text-xs); color: var(--color-text-muted); margin-top: var(--space-2); }
+
+/* CLIENT CARD */
+.client-profile { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); padding: var(--space-4); background: var(--color-primary-highlight); border-radius: var(--radius-lg); }
+.client-avatar { width: 48px; height: 48px; border-radius: var(--radius-full); background: var(--color-primary); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: var(--text-lg); flex-shrink: 0; }
+.client-name { font-weight: 700; font-size: var(--text-base); }
+.client-email { font-size: var(--text-xs); color: var(--color-text-muted); }
+.client-points { margin-left: auto; text-align: right; }
+.client-points .pts { font-size: var(--text-xl); font-weight: 800; color: var(--color-primary); font-variant-numeric: tabular-nums; }
+.client-points .pts-label { font-size: var(--text-xs); color: var(--color-text-muted); }
+
+/* TIER */
+.tier-indicator { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); font-size: var(--text-xs); font-weight: 700; }
+.tier-bronze { background: #cd7f3220; color: #cd7f32; }
+.tier-silver { background: #a8a9ad20; color: #a8a9ad; }
+.tier-gold { background: var(--color-primary-highlight); color: var(--color-primary); }
+.tier-platinum { background: var(--color-blue-highlight); color: var(--color-blue); }
+
+/* FLEX UTILS */
+.flex { display: flex; }
+.flex-between { display: flex; align-items: center; justify-content: space-between; }
+.flex-gap { display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; }
+.mt-2 { margin-top: var(--space-2); }
+.mt-4 { margin-top: var(--space-4); }
+.mt-6 { margin-top: var(--space-6); }
+.mb-4 { margin-bottom: var(--space-4); }
+.mb-6 { margin-bottom: var(--space-6); }
+.text-muted { color: var(--color-text-muted); font-size: var(--text-sm); }
+.font-mono { font-variant-numeric: tabular-nums; }
+
+/* DEBUG PANEL */
+.debug-log { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); font-family: 'Courier New', monospace; font-size: 0.72rem; line-height: 1.6; max-height: 320px; overflow-y: auto; }
+.debug-entry { padding: 2px 0; border-bottom: 1px solid var(--color-divider); display: flex; gap: var(--space-2); }
+.debug-entry .dt { color: var(--color-text-muted); flex-shrink: 0; }
+.debug-entry.info  .msg { color: var(--color-text); }
+.debug-entry.ok    .msg { color: var(--color-success); }
+.debug-entry.warn  .msg { color: var(--color-warning); }
+.debug-entry.err   .msg { color: var(--color-error); font-weight: 700; }
+.debug-entry .sub  { color: var(--color-text-muted); padding-left: var(--space-4); font-size: 0.68rem; }
+
+/* LOADING BANNER */
+.sync-banner { position: fixed; top: 56px; left: 0; right: 0; z-index: 200; background: var(--color-primary); color: #fff; padding: var(--space-2) var(--space-6); display: flex; align-items: center; gap: var(--space-3); font-size: var(--text-sm); font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.2); transition: opacity 0.3s; }
+.sync-banner i { width: 16px; height: 16px; animation: spin 1s linear infinite; }
+.sync-banner .sync-step { opacity: 0.85; font-weight: 400; margin-left: var(--space-2); }
+
+/* GAGNANTS */
+.criteria-slider { width: 100%; margin: var(--space-2) 0; }
+.criteria-row { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); }
+.criteria-row label { min-width: 140px; font-size: var(--text-sm); font-weight: 600; }
+.criteria-row .val { min-width: 40px; text-align: right; font-weight: 700; color: var(--color-primary); font-size: var(--text-sm); }
+.winner-slot { background: var(--color-surface-offset); border: 2px solid var(--color-border); border-radius: var(--radius-xl); padding: var(--space-6); text-align: center; overflow: hidden; position: relative; min-height: 120px; display: flex; align-items: center; justify-content: center; }
+.winner-slot.active { border-color: var(--color-primary); box-shadow: 0 0 30px rgba(212, 175, 55, 0.3); }
+.slot-name { font-size: 1.5rem; font-weight: 800; color: var(--color-primary); line-height: 1.2; transition: all 0.1s; }
+.slot-scroll { animation: slotScroll 0.08s steps(1) infinite; }
+@keyframes slotScroll { 0%{opacity:1} 50%{opacity:0.3} 100%{opacity:1} }
+.winner-card { background: linear-gradient(135deg, var(--color-primary) 0%, #b8860b 100%); border-radius: var(--radius-xl); padding: var(--space-6); text-align: center; color: #fff; }
+.winner-card .w-rank { font-size: 2.5rem; margin-bottom: var(--space-2); }
+.winner-card .w-name { font-size: 1.4rem; font-weight: 800; margin-bottom: var(--space-1); }
+.winner-card .w-pts { font-size: 0.9rem; opacity: 0.85; }
+.mode-btn { padding: var(--space-2) var(--space-4); border-radius: var(--radius-lg); border: 2px solid var(--color-border); background: transparent; color: var(--color-text-muted); font-weight: 600; font-size: var(--text-sm); cursor: pointer; transition: all 0.2s; }
+.mode-btn.active { border-color: var(--color-primary); background: var(--color-primary); color: #fff; }
+.eligibles-bar { height: 6px; background: var(--color-surface-offset); border-radius: 3px; overflow: hidden; margin-top: var(--space-2); }
+.eligibles-fill { height: 100%; background: var(--color-primary); border-radius: 3px; transition: width 0.4s; }
+
+/* DASHBOARD TOGGLE */
+.dash-toggle { display: flex; border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; background: var(--color-surface-offset); }
+.dash-toggle-btn { padding: var(--space-2) var(--space-4); font-size: var(--text-sm); font-weight: 600; cursor: pointer; border: none; background: transparent; color: var(--color-text-muted); display: flex; align-items: center; gap: var(--space-1); transition: all var(--transition-interactive); white-space: nowrap; }
+.dash-toggle-btn i { width: 14px; height: 14px; }
+.dash-toggle-btn.active { background: var(--color-primary); color: #fff; }
+.dash-toggle-btn:hover:not(.active) { background: var(--color-surface-dynamic); color: var(--color-text); }
+.tier-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-3); margin-top: var(--space-4); }
+@media (max-width: 700px) { .tier-grid { grid-template-columns: repeat(3, 1fr); } }
+.tier-stat { text-align: center; padding: var(--space-3); background: var(--color-surface-offset); border-radius: var(--radius-lg); }
+.tier-stat .t-emoji { font-size: 1.4rem; line-height: 1; margin-bottom: var(--space-1); }
+.tier-stat .t-num { font-size: var(--text-xl); font-weight: 800; }
+.tier-stat .t-lbl { font-size: var(--text-xs); color: var(--color-text-muted); margin-top: 2px; }
+
+.sync-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: var(--radius-full); font-size: 0.72rem; font-weight: 600; cursor: default; transition: all var(--transition-interactive); }
+.sync-badge i { width: 11px; height: 11px; }
+.sync-badge.ok   { background: var(--color-success-highlight); color: var(--color-success); }
+.sync-badge.warn { background: var(--color-warning-highlight); color: var(--color-warning); }
+.sync-badge.err  { background: var(--color-error-highlight); color: var(--color-error); }
+.sync-badge.spin i { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* SETTINGS VIEW */
+.code-block {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  font-family: 'Courier New', monospace;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  white-space: pre;
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 380px;
+  color: var(--color-text);
+  tab-size: 2;
+}
+.step-list { display: flex; flex-direction: column; gap: var(--space-3); counter-reset: steps; }
+.step-item { display: flex; gap: var(--space-3); align-items: flex-start; font-size: var(--text-sm); }
+.step-num { min-width: 26px; height: 26px; border-radius: var(--radius-full); background: var(--color-primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: var(--text-xs); font-weight: 800; flex-shrink: 0; margin-top: 1px; }
+.step-content { flex: 1; color: var(--color-text-muted); line-height: 1.5; }
+.step-content strong { color: var(--color-text); }
+.gs-status-row { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3); padding: var(--space-3); background: var(--color-surface-offset); border-radius: var(--radius-md); font-size: var(--text-sm); }
+.gs-status-row i { width: 16px; height: 16px; flex-shrink: 0; }
+.local-stats { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-top: var(--space-4); }
+.local-stat { background: var(--color-surface-offset); border-radius: var(--radius-md); padding: var(--space-3); text-align: center; }
+.local-stat .num { font-size: var(--text-xl); font-weight: 800; color: var(--color-primary); }
+.local-stat .lbl { font-size: var(--text-xs); color: var(--color-text-muted); margin-top: 2px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="topbar-brand">
+    <a class="topbar-logo" href="#">
+      <img src="https://img.mailinblue.com/7659215/images/content_library/original/6a02c8c77a289d644f875159.png"
+           alt="Mass'In"
+           style="height:38px;width:auto;object-fit:contain;"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='';">
+      <div style="display:none;">
+        <div class="brand-name">Mass'In</div>
+        <div class="brand-sub">Programme Fidélité — Anniversaire</div>
+      </div>
+    </a>
+  </div>
+  <div class="topbar-actions">
+    <span id="sync-badge" class="sync-badge warn" title="Statut de synchronisation" style="display:none;">
+      <i data-lucide="cloud-off"></i><span id="sync-badge-text">Non synchronisé</span>
+    </span>
+    <button class="btn-icon" data-theme-toggle aria-label="Basculer le thème">
+      <i data-lucide="sun"></i>
+    </button>
+    <button class="btn btn-primary btn-sm" onclick="openModal('addPurchaseModal')">
+      <i data-lucide="plus"></i> Nouvel achat
+    </button>
+  </div>
+</header>
+
+<!-- NAVIGATION -->
+<nav class="nav-tabs" role="tablist">
+  <button class="nav-tab active" role="tab" onclick="switchView('dashboard')">
+    <i data-lucide="layout-dashboard"></i> Tableau de bord
+  </button>
+  <button class="nav-tab" role="tab" onclick="switchView('clients')">
+    <i data-lucide="users"></i> Clients & Points
+  </button>
+  <button class="nav-tab" role="tab" onclick="switchView('import')">
+    <i data-lucide="upload-cloud"></i> Import données
+  </button>
+  <button class="nav-tab" role="tab" onclick="switchView('bareme')">
+    <i data-lucide="star"></i> Barème
+  </button>
+  <button class="nav-tab" role="tab" onclick="switchView('winners')">
+    <i data-lucide="trophy"></i> Gagnants
+  </button>
+  <button class="nav-tab" role="tab" onclick="switchView('settings')">
+    <i data-lucide="settings-2"></i> Paramètres
+  </button>
+</nav>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- ======= DASHBOARD ======= -->
+  <div id="view-dashboard" class="view active">
+    <div class="flex-between mb-6" style="flex-wrap:wrap; gap:var(--space-3);">
+      <div>
+        <div class="section-title" id="dash-period-title">Tableau de bord</div>
+        <div class="text-muted">Campagne Anniversaire Mass'In · Achetez &amp; Gagnez</div>
+      </div>
+      <div class="flex-gap" style="flex-wrap:wrap;">
+        <div class="dash-toggle" role="group" aria-label="Mode tableau de bord">
+          <button class="dash-toggle-btn active" id="btn-dash-global" onclick="setDashMode('global')">
+            <i data-lucide="globe-2"></i> Vue globale
+          </button>
+          <button class="dash-toggle-btn" id="btn-dash-month" onclick="setDashMode('month')">
+            <i data-lucide="calendar-days"></i> Campagne
+          </button>
+        </div>
+        <div class="flex-gap" id="year-selector-wrap" style="display:none;gap:var(--space-2);align-items:center;">
+          <span style="font-size:var(--text-xs);color:var(--color-text-muted);">Année :</span>
+          <select id="dash-year-select" class="form-select" style="padding:2px var(--space-2);font-size:var(--text-xs);width:auto;" onchange="renderDashboard()"></select>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI STATS — injecté dynamiquement -->
+    <div class="grid-4 mb-6" id="kpi-grid"></div>
+
+    <!-- RÉPARTITION TIERS — vue globale uniquement -->
+    <div id="tier-distribution" class="mb-6"></div>
+
+    <!-- CLASSEMENT + RÉCENTS -->
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title" id="podium-title"><i data-lucide="trophy"></i> Top 5 clients</div>
+        <div id="podium-list" class="podium"></div>
+      </div>
+      <div class="card">
+        <div class="card-title" id="recent-title"><i data-lucide="clock"></i> Derniers achats</div>
+        <div id="recent-purchases"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======= CLIENTS ======= -->
+  <div id="view-clients" class="view">
+    <div class="flex-between mb-6" style="flex-wrap:wrap; gap:var(--space-3);">
+      <div>
+        <div class="section-title">Clients & Points</div>
+        <div class="text-muted">Rechercher, consulter et modifier les points clients</div>
+      </div>
+      <div class="flex-gap">
+        <button class="btn btn-secondary btn-sm" onclick="exportCSV()">
+          <i data-lucide="download"></i> Exporter CSV
+        </button>
+        <button class="btn btn-primary btn-sm" onclick="openModal('addClientModal')">
+          <i data-lucide="user-plus"></i> Ajouter un client
+        </button>
+      </div>
+    </div>
+
+    <!-- SEARCH & FILTER -->
+    <div class="card mb-4">
+      <div class="flex-gap" style="gap:var(--space-3);flex-wrap:wrap;">
+        <div class="search-wrap" style="flex:1;min-width:220px;">
+          <i data-lucide="search"></i>
+          <input type="text" class="form-input search-input" id="client-search" placeholder="Rechercher par nom, email, téléphone…" oninput="clientsPage=0;renderClientsTable()">
+        </div>
+        <select class="form-select" style="width:180px;" id="client-filter-tier" onchange="clientsPage=0;renderClientsTable()">
+          <option value="">Tous les niveaux</option>
+          <option value="Bronze">Bronze</option>
+          <option value="Argent">Argent</option>
+          <option value="Or">Or</option>
+          <option value="Platine">Platine</option>
+        </select>
+        <select class="form-select" style="width:160px;" id="client-filter-type" onchange="clientsPage=0;renderClientsTable()">
+          <option value="">Tous les clients</option>
+          <option value="ancien">Anciens clients</option>
+          <option value="nouveau">Nouveaux clients</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- TABLE -->
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div class="table-wrap" style="border:none;border-radius:var(--radius-xl);">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Client</th>
+              <th>Email</th>
+              <th>Téléphone</th>
+              <th>Type</th>
+              <th>Niveau</th>
+              <th title="Points montant : achats campagne + historique ODOO">Pts Montant</th>
+              <th title="Points fréquence : campagne + fidélité annuelle historique">Pts Fréquence</th>
+              <th title="Total = Montant + Fréquence + Historique" style="color:var(--color-primary);">Total Points</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="clients-tbody"></tbody>
+        </table>
+        <div id="clients-pagination"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======= IMPORT ======= -->
+  <div id="view-import" class="view">
+    <div class="section-title mb-2">Import des données ODOO</div>
+    <div class="section-sub mb-6">
+      Importez votre export ODOO complet (toutes les années). Le système analyse automatiquement 
+      l'historique, détecte les nouveaux clients, les rachats et calcule tous les points.
+    </div>
+
+    <div class="card mb-6">
+      <div class="card-title"><i data-lucide="upload-cloud"></i> Fichier ODOO — Toutes les ventes</div>
+      <div class="alert alert-info mb-4">
+        <i data-lucide="info"></i>
+        <div>
+          <strong>Workflow simplifié :</strong> exportez depuis ODOO le tableau croisé dynamique complet 
+          (toutes les années), importez ici. Le système fait tout automatiquement :<br>
+          <strong>• Historique</strong> (avant <span id="import-current-year">2026</span>) → Pts Montant + Fréquence fidélité<br>
+          <strong>• Campagne</strong> (<span id="import-current-year-2">2026</span>) → Pts campagne + détection nouveaux/rachats<br>
+          Re-importez chaque mois avec l'export mis à jour — toutes les stats se recalculent.
+        </div>
+      </div>
+      <div class="import-zone" id="drop-zone-legacy" 
+        onclick="document.getElementById('file-legacy').click()"
+        ondragover="handleDragOver(event,'drop-zone-legacy')"
+        ondragleave="handleDragLeave('drop-zone-legacy')"
+        ondrop="handleDrop(event,'legacy')">
+        <i data-lucide="upload-cloud"></i>
+        <p><strong>Glissez votre fichier ODOO ici</strong> (.xlsx ou .csv)</p>
+        <p>Tableau croisé dynamique — toutes les années</p>
+      </div>
+      <input type="file" id="file-legacy" accept=".csv,.txt,.xlsx,.xls" style="display:none;" 
+        onchange="handleFileImport(this,'legacy')">
+      <div id="import-legacy-result" class="mt-4"></div>
+    </div>
+
+    <!-- GUIDE FORMAT -->
+    <div class="card">
+      <div class="card-title"><i data-lucide="help-circle"></i> Format du fichier ODOO</div>
+      <div class="grid-2 mt-4">
+        <div>
+          <h4 class="mb-4" style="font-size:var(--text-sm);font-weight:700;">📋 Format pivot ODOO (détecté automatiquement)</h4>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Colonne</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td><code>Nom client</code></td><td>Nom du client (clé primaire)</td></tr>
+                <tr><td><code>2016, 2017…</code></td><td>CA annuel → points historiques</td></tr>
+                <tr><td><code>2026</code></td><td>CA campagne actuelle → rachats/nouveaux</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="alert alert-success mt-4">
+            <i data-lucide="check-circle"></i>
+            <div>
+              <strong>Nouveau vs Rachat :</strong> détecté automatiquement.<br>
+              • <strong>Rachat</strong> = client avec historique <em>et</em> achat en <span id="import-year-badge">2026</span><br>
+              • <strong>Nouveau</strong> = seulement apparu en <span id="import-year-badge-2">2026</span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <h4 class="mb-4" style="font-size:var(--text-sm);font-weight:700;">🔄 Workflow recommandé</h4>
+          <div class="step-list">
+            <div class="step-item"><div class="step-num">1</div><div class="step-content">Dans ODOO, générez le <strong>tableau croisé dynamique</strong> des factures avec toutes les années.</div></div>
+            <div class="step-item"><div class="step-num">2</div><div class="step-content">Exportez en <strong>.xlsx</strong> et glissez-le ici. L'import prend ~2 secondes.</div></div>
+            <div class="step-item"><div class="step-num">3</div><div class="step-content">Les <strong>points, niveaux et statistiques</strong> se calculent instantanément.</div></div>
+            <div class="step-item"><div class="step-num">4</div><div class="step-content">Chaque mois : re-exportez depuis ODOO et <strong>re-importez</strong>. Tout se met à jour.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======= BAREME  <!-- ======= BAREME ======= -->
+  <div id="view-bareme" class="view">
+    <div class="section-title mb-2">Barème du Programme de Fidélité</div>
+    <div class="section-sub">Système d'attribution des points — Campagne Anniversaire Mass'In</div>
+
+    <div class="bareme-grid mb-6">
+      <!-- Points Montant -->
+      <div class="bareme-card">
+        <h4><i data-lucide="banknote"></i> Points selon le montant d'achat</h4>
+        <div class="bareme-row"><span>1 000 – 49 999 Ar</span><span class="bareme-pts">5 pts</span></div>
+        <div class="bareme-row"><span>50 000 – 99 999 Ar</span><span class="bareme-pts">15 pts</span></div>
+        <div class="bareme-row"><span>100 000 – 199 999 Ar</span><span class="bareme-pts">35 pts</span></div>
+        <div class="bareme-row"><span>200 000 – 499 999 Ar</span><span class="bareme-pts">80 pts</span></div>
+        <div class="bareme-row"><span>500 000 – 999 999 Ar</span><span class="bareme-pts">180 pts</span></div>
+        <div class="bareme-row"><span>1 000 000 Ar et +</span><span class="bareme-pts">400 pts</span></div>
+      </div>
+
+      <!-- Points Fréquence -->
+      <div class="bareme-card">
+        <h4><i data-lucide="repeat"></i> Points selon la fréquence d'achat (par mois)</h4>
+        <div class="bareme-row"><span>1 achat dans le mois</span><span class="bareme-pts">+0 pts</span></div>
+        <div class="bareme-row"><span>2 achats dans le mois</span><span class="bareme-pts">+5 pts</span></div>
+        <div class="bareme-row"><span>3 achats dans le mois</span><span class="bareme-pts">+15 pts</span></div>
+        <div class="bareme-row"><span>4 achats dans le mois</span><span class="bareme-pts">+30 pts</span></div>
+        <div class="bareme-row"><span>5 achats et plus</span><span class="bareme-pts">+50 pts</span></div>
+      </div>
+    </div>
+
+    <!-- Niveaux -->
+    <div class="card mb-6">
+      <div class="card-title"><i data-lucide="layers"></i> Niveaux de fidélité (cumulatif depuis le début)</div>
+      <div class="grid-4 mt-4">
+        <div class="bareme-card" style="border:1px solid #cd7f3240;text-align:center;">
+          <div style="font-size:1.5rem;margin-bottom:var(--space-2);">🥉</div>
+          <div style="font-weight:800;color:#cd7f32;font-size:var(--text-base);">Bronze</div>
+          <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-1);">0 – 99 pts</div>
+          <div style="font-size:var(--text-xs);margin-top:var(--space-2);">Cadre de départ</div>
+        </div>
+        <div class="bareme-card" style="border:1px solid #a8a9ad40;text-align:center;">
+          <div style="font-size:1.5rem;margin-bottom:var(--space-2);">🥈</div>
+          <div style="font-weight:800;color:#a8a9ad;font-size:var(--text-base);">Argent</div>
+          <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-1);">100 – 299 pts</div>
+          <div style="font-size:var(--text-xs);margin-top:var(--space-2);">Bon client récurrent</div>
+        </div>
+        <div class="bareme-card" style="border:1px solid var(--color-primary);text-align:center;">
+          <div style="font-size:1.5rem;margin-bottom:var(--space-2);">🥇</div>
+          <div style="font-weight:800;color:var(--color-primary);font-size:var(--text-base);">Or</div>
+          <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-1);">300 – 699 pts</div>
+          <div style="font-size:var(--text-xs);margin-top:var(--space-2);">Client premium</div>
+        </div>
+        <div class="bareme-card" style="border:1px solid var(--color-blue);text-align:center;">
+          <div style="font-size:1.5rem;margin-bottom:var(--space-2);">💎</div>
+          <div style="font-weight:800;color:var(--color-blue);font-size:var(--text-base);">Platine</div>
+          <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-1);">700 pts et +</div>
+          <div style="font-size:var(--text-xs);margin-top:var(--space-2);">Meilleur client du mois !</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Simulateur -->
+    <div class="card">
+      <div class="card-title"><i data-lucide="calculator"></i> Simulateur de points</div>
+      <div class="grid-2 mt-4">
+        <div>
+          <div class="form-group">
+            <label class="form-label">Montant d'achat (Ar)</label>
+            <input type="number" class="form-input" id="sim-amount" placeholder="ex: 150000" oninput="simulatePoints()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Nombre d'achats ce mois</label>
+            <input type="number" class="form-input" id="sim-freq" value="1" min="1" max="20" oninput="simulatePoints()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Points déjà accumulés (ancien client)</label>
+            <input type="number" class="form-input" id="sim-existing" value="0" min="0" oninput="simulatePoints()">
+          </div>
+        </div>
+        <div class="calc-box" id="sim-result">
+          <div style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-3);">Résultat de la simulation</div>
+          <div class="calc-total" id="sim-total">—</div>
+          <div class="calc-breakdown" id="sim-breakdown"></div>
+          <div id="sim-tier" class="mt-4"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- ======= GAGNANTS ======= -->
+  <div id="view-winners" class="view">
+    <div class="section-title mb-2">🏆 Sélection des Gagnants</div>
+    <div class="section-sub mb-6">Sélectionnez les gagnants de manière équitable selon les critères de votre choix</div>
+
+    <div class="grid-2 mb-6">
+      <!-- CRITÈRES -->
+      <div class="card">
+        <div class="card-title"><i data-lucide="sliders-horizontal"></i> Critères de sélection</div>
+
+        <div style="margin:var(--space-4) 0;font-size:var(--text-sm);font-weight:700;">Filtres d'éligibilité</div>
+        <div class="form-group">
+          <label class="form-label">Type de clients</label>
+          <select class="form-select" id="w-filter-type" onchange="updateWinnersPreview()">
+            <option value="">Tous les clients</option>
+            <option value="ancien">Anciens clients uniquement</option>
+            <option value="rachat">Rachats (achat ce mois-ci + historique)</option>
+            <option value="nouveau">Nouveaux clients uniquement</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Points minimum requis</label>
+          <input type="number" class="form-input" id="w-min-pts" value="0" min="0" oninput="updateWinnersPreview()">
+        </div>
+
+        <div class="divider"></div>
+        <div style="margin:var(--space-3) 0;font-size:var(--text-sm);font-weight:700;">Critère de classement</div>
+        <select class="form-select" id="w-sort-by" onchange="updateWinnersPreview()">
+          <option value="total">Points totaux (recommandé)</option>
+          <option value="amount">Montant cumulé (pts montant)</option>
+          <option value="freq">Fidélité (pts fréquence)</option>
+          <option value="history">Ancienneté (pts historiques)</option>
+          <option value="composite">Score composite personnalisé</option>
+        </select>
+
+        <div id="w-composite-weights" style="display:none;margin-top:var(--space-4);">
+          <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-bottom:var(--space-3);">Ajustez les poids du score composite (total = 100%)</div>
+          <div class="criteria-row"><label>💰 Montant</label><input type="range" class="criteria-slider" id="w-w-amount" min="0" max="100" value="40" oninput="syncWeights('amount')"><span class="val" id="w-v-amount">40%</span></div>
+          <div class="criteria-row"><label>🔄 Fréquence</label><input type="range" class="criteria-slider" id="w-w-freq" min="0" max="100" value="30" oninput="syncWeights('freq')"><span class="val" id="w-v-freq">30%</span></div>
+          <div class="criteria-row"><label>📅 Ancienneté</label><input type="range" class="criteria-slider" id="w-w-history" min="0" max="100" value="30" oninput="syncWeights('history')"><span class="val" id="w-v-history">30%</span></div>
+        </div>
+      </div>
+
+      <!-- MODE + NB GAGNANTS -->
+      <div class="card">
+        <div class="card-title"><i data-lucide="sparkles"></i> Mode de révélation</div>
+        <div class="flex-gap mb-4">
+          <button class="mode-btn active" id="mode-rank" onclick="setWinMode('rank')">🥇 Classement direct</button>
+          <button class="mode-btn" id="mode-lottery" onclick="setWinMode('lottery')">🎰 Tirage pondéré</button>
+        </div>
+        <div id="mode-rank-desc" style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-4);">
+          Les <strong>N meilleurs clients</strong> selon le critère choisi sont désignés gagnants. Résultat déterministe et transparent.
+        </div>
+        <div id="mode-lottery-desc" style="display:none;font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-4);">
+          Tirage avec <strong>tickets proportionnels aux points</strong>. Les meilleurs clients ont plus de chances, mais tout le monde peut gagner. Résultat avec animation.
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Nombre de gagnants</label>
+          <input type="number" class="form-input" id="w-nb-winners" value="1" min="1" max="20" oninput="updateWinnersPreview()">
+        </div>
+
+        <div class="divider"></div>
+        <div id="w-preview-stats">
+          <div style="font-size:var(--text-sm);color:var(--color-text-muted);">Ouvrez cet onglet avec des données chargées.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOUTON LANCEMENT -->
+    <div class="card mb-6" style="text-align:center;padding:var(--space-8);">
+      <div style="font-size:2rem;margin-bottom:var(--space-4);">🎉</div>
+      <button class="btn btn-primary" style="font-size:1.1rem;padding:var(--space-3) var(--space-8);" onclick="launchWinners()" id="btn-launch-winners">
+        <i data-lucide="zap"></i> Révéler les gagnants
+      </button>
+      <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-2);" id="w-launch-hint"></div>
+    </div>
+
+    <!-- RÉSULTATS -->
+    <div id="winners-result"></div>
+  </div>
+
+  <!-- ======= PARAMÈTRES ======= -->
+  <div id="view-settings" class="view">
+    <div class="section-title mb-2">Paramètres &amp; Persistance des données</div>
+    <div class="section-sub">Configurez la sauvegarde automatique pour ne plus perdre vos données entre les sessions</div>
+
+    <div class="grid-2 mb-6">
+
+      <!-- CARTE LOCALE -->
+      <div class="card">
+        <div class="card-title"><i data-lucide="hard-drive"></i> Sauvegarde locale (active)</div>
+        <div class="alert alert-success" style="margin-bottom:var(--space-4);">
+          <i data-lucide="check-circle"></i>
+          <div>Le stockage <strong>localStorage</strong> est actif. Vos données survivent aux rechargements de page, tant que vous ne videz pas le cache du navigateur.</div>
+        </div>
+        <div id="local-stats" class="local-stats">
+          <div class="local-stat"><div class="num" id="ls-clients">—</div><div class="lbl">Clients sauvegardés</div></div>
+          <div class="local-stat"><div class="num" id="ls-purchases">—</div><div class="lbl">Achats sauvegardés</div></div>
+        </div>
+        <div id="ls-last-save" style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-3);"></div>
+        <div class="divider"></div>
+        <div class="flex-gap" style="justify-content:flex-end;">
+          <button class="btn btn-danger btn-sm" onclick="confirmClearLocal()">
+            <i data-lucide="trash-2"></i> Réinitialiser les données locales
+          </button>
+        </div>
+      </div>
+
+      <!-- CARTE SUPABASE -->
+      <div class="card">
+        <div class="card-title"><i data-lucide="database"></i> Supabase (cloud — recommandé)</div>
+        <div class="alert alert-success" style="margin-bottom:var(--space-4);">
+          <i data-lucide="check-circle"></i>
+          <div><strong>Fonctionne depuis Madagascar</strong> — REST API natif, CORS parfait, aucun cold start.</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">URL du projet Supabase</label>
+          <input type="url" class="form-input" id="supa-url-input" placeholder="https://xxxxxxxxxxxx.supabase.co" oninput="supaInputChanged()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Clé anonyme (anon key)</label>
+          <input type="text" class="form-input" id="supa-key-input" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…" oninput="supaInputChanged()">
+          <span class="form-hint">Paramètres projet → API → Project API keys → anon public</span>
+        </div>
+        <div class="flex-gap" style="margin-bottom:var(--space-3);flex-wrap:wrap;">
+          <button class="btn btn-secondary btn-sm" onclick="testSupabase()"><i data-lucide="zap"></i> Tester</button>
+          <button class="btn btn-primary btn-sm" onclick="saveSupaConfig()"><i data-lucide="save"></i> Enregistrer</button>
+        </div>
+        <div id="supa-test-result"></div>
+        <div id="supa-status" style="margin-top:var(--space-3);padding:var(--space-3);background:var(--color-surface-offset);border-radius:var(--radius-md);font-size:var(--text-xs);font-family:monospace;"></div>
+        <div class="divider"></div>
+        <div class="flex-gap" style="justify-content:space-between;flex-wrap:wrap;">
+          <button class="btn btn-secondary btn-sm" onclick="loadFromSupabase()" id="btn-load-supa">
+            <i data-lucide="cloud-download"></i> Charger depuis Supabase
+          </button>
+          <button class="btn btn-success btn-sm" onclick="syncToSupabase()" id="btn-sync-supa">
+            <i data-lucide="cloud-upload"></i> Sauvegarder vers Supabase
+          </button>
+        </div>
+        <div style="margin-top:var(--space-3);padding:var(--space-3);background:var(--color-primary-highlight);border-radius:var(--radius-md);font-size:var(--text-xs);color:var(--color-text-muted);">
+          💡 <strong>Identifiants dans config.js</strong> — modifiez uniquement ce fichier dans votre repo GitHub. 
+          Le fichier index.html peut être remplacé librement sans reconfiguration.
+        </div>
+        <div style="margin-top:var(--space-3);">
+          <button class="btn btn-secondary" style="width:100%;" onclick="downloadConfigJs()">
+            <i data-lucide="file-down"></i> Télécharger config.js avec mes identifiants
+          </button>
+          <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-1);text-align:center;">
+            Uploadez ce fichier sur GitHub pour que tous les appareils se connectent automatiquement
+          </div>
+        </div>
+        <div id="supa-last-sync" style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-3);"></div>
+      </div>
+    </div>
+
+    <!-- GUIDE SUPABASE -->
+    <div class="card mb-6">
+      <div class="card-title"><i data-lucide="book-open"></i> Guide d'installation — Supabase (5 minutes)</div>
+      <div class="grid-2 mt-4" style="gap:var(--space-6);">
+        <div>
+          <div style="font-size:var(--text-sm);font-weight:700;margin-bottom:var(--space-4);">📋 Étapes</div>
+          <div class="step-list">
+            <div class="step-item"><div class="step-num">1</div><div class="step-content">Allez sur <strong>supabase.com</strong> → créez un compte gratuit → <strong>New project</strong> (choisissez la région la plus proche).</div></div>
+            <div class="step-item"><div class="step-num">2</div><div class="step-content">Dans votre projet : menu gauche → <strong>SQL Editor</strong> → collez et exécutez le schéma SQL ci-contre (bouton "Copier le SQL").</div></div>
+            <div class="step-item"><div class="step-num">3</div><div class="step-content">Menu gauche → <strong>Project Settings → API</strong> → copiez <strong>Project URL</strong> et <strong>anon public key</strong>.</div></div>
+            <div class="step-item"><div class="step-num">4</div><div class="step-content">Collez-les dans les champs ci-dessus → <strong>Enregistrer</strong> → <strong>Tester la connexion</strong>.</div></div>
+            <div class="step-item"><div class="step-num">5</div><div class="step-content">Importez votre fichier XLSX comme d'habitude — les données seront automatiquement envoyées vers Supabase.</div></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex-between mb-4">
+            <div style="font-size:var(--text-sm);font-weight:700;">📄 Schéma SQL à exécuter</div>
+            <button class="btn btn-secondary btn-sm" onclick="copySQLSchema()"><i data-lucide="copy"></i> Copier le SQL</button>
+          </div>
+          <div class="code-block" id="sql-schema-display"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EXPORT/IMPORT JSON -->
+    <!-- EXPORT/IMPORT JSON -->
+    <div class="card">
+      <div class="card-title"><i data-lucide="file-json"></i> Sauvegarde manuelle JSON</div>
+      <div class="section-sub" style="margin-bottom:var(--space-4);">Alternative si Google Sheets n'est pas disponible — copiez et gardez ce JSON en lieu sûr.</div>
+      <div class="grid-2" style="gap:var(--space-4);">
+        <div>
+          <div style="font-size:var(--text-sm);font-weight:700;margin-bottom:var(--space-2);">Exporter (copier)</div>
+          <textarea class="form-textarea" id="json-export-area" rows="6" readonly style="font-family:monospace;font-size:0.75rem;"></textarea>
+          <button class="btn btn-secondary btn-sm mt-2" onclick="refreshJsonExport()"><i data-lucide="refresh-cw"></i> Actualiser</button>
+          <button class="btn btn-primary btn-sm mt-2" onclick="copyJsonExport()"><i data-lucide="copy"></i> Copier</button>
+        </div>
+        <div>
+          <div style="font-size:var(--text-sm);font-weight:700;margin-bottom:var(--space-2);">Importer (coller)</div>
+          <textarea class="form-textarea" id="json-import-area" rows="6" placeholder="Collez ici un JSON précédemment exporté…" style="font-family:monospace;font-size:0.75rem;"></textarea>
+          <button class="btn btn-success btn-sm mt-2" onclick="importFromJson()"><i data-lucide="upload"></i> Importer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DEBUG PANEL -->
+    <div class="card">
+      <div class="card-title" style="cursor:pointer;user-select:none;" onclick="toggleDebug()">
+        <i data-lucide="bug"></i> Console de diagnostic
+        <span id="debug-toggle-lbl" style="margin-left:auto;font-size:var(--text-xs);color:var(--color-text-muted);">&#9660; Afficher</span>
+      </div>
+      <div id="debug-body" style="display:none;margin-top:var(--space-4);">
+        <div class="flex-gap mb-3" style="flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" onclick="runDiagnostic()"><i data-lucide="stethoscope"></i> Diagnostic complet</button>
+          <button class="btn btn-secondary btn-sm" onclick="copyDebugLog()"><i data-lucide="copy"></i> Copier les logs</button>
+          <button class="btn btn-secondary btn-sm" onclick="clearDebug()"><i data-lucide="trash-2"></i> Effacer</button>
+        </div>
+        <div class="debug-log" id="debug-log"><span style="color:var(--color-text-muted);">Cliquez "Diagnostic complet" pour demarrer</span></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div id="sync-loading-banner" style="display:none;" class="sync-banner">
+  <i data-lucide="loader"></i>
+  <span id="sync-banner-text">Synchronisation en cours…</span>
+  <span class="sync-step" id="sync-banner-step"></span>
+  <button onclick="hideSyncBanner();_releaseLock();" style="margin-left:auto;background:rgba(255,255,255,0.2);border:none;color:#fff;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;">✕ Annuler</button>
+</div>
+<div class="toast-container" id="toast-container"></div>
+
+<!-- ======= MODAL : NOUVEL ACHAT ======= -->
+<div class="modal-overlay" id="addPurchaseModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Enregistrer un achat</div>
+      <button class="modal-close" onclick="closeModal('addPurchaseModal')"><i data-lucide="x"></i></button>
+    </div>
+
+    <div class="pill-tabs" id="purchase-type-tabs">
+      <button class="pill-tab active" onclick="switchPurchaseType('new')">Nouveau client</button>
+      <button class="pill-tab" onclick="switchPurchaseType('existing')">Client existant</button>
+    </div>
+
+    <!-- New Client Fields -->
+    <div id="purchase-new-fields">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nom complet *</label>
+          <input type="text" class="form-input" id="new-name" placeholder="Rakoto Jean">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Téléphone</label>
+          <input type="text" class="form-input" id="new-phone" placeholder="034 12 345 67">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" class="form-input" id="new-email" placeholder="jean@example.com">
+        <span class="form-hint">Recommandé pour la réactivation</span>
+      </div>
+    </div>
+
+    <!-- Existing Client Search -->
+    <div id="purchase-existing-fields" style="display:none;">
+      <div class="form-group">
+        <label class="form-label">Rechercher le client</label>
+        <div class="search-wrap">
+          <i data-lucide="search"></i>
+          <input type="text" class="form-input search-input" id="existing-search" placeholder="Nom, email ou téléphone…" oninput="searchExistingClient()">
+        </div>
+      </div>
+      <div id="existing-results" style="max-height:180px;overflow-y:auto;border:1px solid var(--color-border);border-radius:var(--radius-md);"></div>
+      <div id="selected-client-preview" style="margin-top:var(--space-3);"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Montant d'achat (Ar) *</label>
+        <input type="number" class="form-input" id="purchase-amount" placeholder="150000" oninput="previewPurchasePoints()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Date de l'achat</label>
+        <input type="date" class="form-input" id="purchase-date">
+      </div>
+    </div>
+
+    <div id="purchase-points-preview" class="calc-box" style="margin-bottom:var(--space-4);display:none;">
+      <div style="font-size:var(--text-xs);color:var(--color-text-muted);">Points à attribuer pour cet achat</div>
+      <div class="calc-total" id="preview-pts">0</div>
+      <div class="calc-breakdown" id="preview-breakdown"></div>
+    </div>
+
+    <div class="flex-gap" style="justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeModal('addPurchaseModal')">Annuler</button>
+      <button class="btn btn-primary" onclick="submitPurchase()"><i data-lucide="check"></i> Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======= MODAL : AJOUTER CLIENT ======= -->
+<div class="modal-overlay" id="addClientModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Ajouter un client</div>
+      <button class="modal-close" onclick="closeModal('addClientModal')"><i data-lucide="x"></i></button>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Nom complet *</label><input type="text" class="form-input" id="ac-name"></div>
+      <div class="form-group"><label class="form-label">Téléphone</label><input type="text" class="form-input" id="ac-phone"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="ac-email"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Points initiaux</label><input type="number" class="form-input" id="ac-points" value="0"></div>
+      <div class="form-group">
+        <label class="form-label">Type</label>
+        <select class="form-select" id="ac-type">
+          <option value="nouveau">Nouveau client</option>
+          <option value="ancien">Ancien client (depuis 2016)</option>
+        </select>
+      </div>
+    </div>
+    <div class="flex-gap" style="justify-content:flex-end;margin-top:var(--space-4);">
+      <button class="btn btn-secondary" onclick="closeModal('addClientModal')">Annuler</button>
+      <button class="btn btn-primary" onclick="submitAddClient()"><i data-lucide="user-plus"></i> Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======= MODAL : DETAIL CLIENT ======= -->
+<div class="modal-overlay" id="clientDetailModal">
+  <div class="modal" style="max-width:620px;">
+    <div class="modal-header">
+      <div class="modal-title">Fiche client</div>
+      <button class="modal-close" onclick="closeModal('clientDetailModal')"><i data-lucide="x"></i></button>
+    </div>
+    <div id="client-detail-content"></div>
+  </div>
+</div>
+
+<script src="config.js" onerror="console.warn('config.js non trouvé — configurez Supabase dans Paramètres')"></script>
+<script>
+// ===================== DATA STORE =====================
+let clients = [];
+let purchases = [];
+let selectedClientId = null;
+let _driveStats = null; // Stats agrégées chargées depuis Drive (mobile léger)
+
+// Barème points montant
+const AMOUNT_BRACKETS = [
+  { min: 1000000, pts: 400 },
+  { min: 500000,  pts: 180 },
+  { min: 200000,  pts: 80 },
+  { min: 100000,  pts: 35 },
+  { min: 50000,   pts: 15 },
+  { min: 1000,    pts: 5 },
+  { min: 0,       pts: 0 },
+];
+
+// Barème fréquence (par mois, par client)
+const FREQ_BRACKETS = [
+  { min: 5, pts: 50 },
+  { min: 4, pts: 30 },
+  { min: 3, pts: 15 },
+  { min: 2, pts: 5 },
+  { min: 1, pts: 0 },
+];
+
+const TIERS = [
+  { min: 700, name: 'Platine', emoji: '💎', cls: 'tier-platinum' },
+  { min: 300, name: 'Or',      emoji: '🥇', cls: 'tier-gold' },
+  { min: 100, name: 'Argent',  emoji: '🥈', cls: 'tier-silver' },
+  { min: 0,   name: 'Bronze',  emoji: '🥉', cls: 'tier-bronze' },
+];
+
+function getAmountPts(amount) {
+  const b = AMOUNT_BRACKETS.find(b => amount >= b.min);
+  return b ? b.pts : 0;
+}
+
+function getFreqPts(count) {
+  const b = FREQ_BRACKETS.find(b => count >= b.min);
+  return b ? b.pts : 0;
+}
+
+function getTier(pts) {
+  return TIERS.find(t => pts >= t.min) || TIERS[TIERS.length - 1];
+}
+
+function getClientMonthPurchases(clientId) {
+  const now = new Date();
+  return purchases.filter(p => {
+    const d = new Date(p.date);
+    return p.clientId === clientId && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  });
+}
+
+function recalcClientPoints(clientId) {
+  const client = clients.find(c => c.id === clientId);
+  if (!client) return;
+  // Get all monthly purchases grouped per month
+  const monthMap = {};
+  purchases.filter(p => p.clientId === clientId).forEach(p => {
+    const d = new Date(p.date);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    if (!monthMap[key]) monthMap[key] = [];
+    monthMap[key].push(p);
+  });
+  let totalAmountPts = 0;
+  let totalFreqPts = 0;
+  Object.values(monthMap).forEach(monthPurchases => {
+    monthPurchases.forEach(p => { totalAmountPts += getAmountPts(p.amount); });
+    totalFreqPts += getFreqPts(monthPurchases.length);
+  });
+  client.ptsAmount = totalAmountPts;
+  client.ptsFreq = totalFreqPts;
+  client.totalPoints = client.ptsAmount + client.ptsFreq + (client.historicalPoints || 0) + (client.historicalPtsFreq || 0);
+}
+
+// ===================== SEED DATA =====================
+function seedData() {
+  const names = [
+    ['Rakoto Jean', 'jean.rakoto@gmail.com', '034 12 000 01'],
+    ['Rabe Marie', 'marie.rabe@yahoo.fr', '033 56 789 01'],
+    ['Andry Nomena', 'andry.n@gmail.com', '032 44 100 22'],
+    ['Hery Vatosoa', 'h.vatosoa@gmail.com', '034 78 900 33'],
+    ['Fara Lalao', 'fara.lalao@gmail.com', '033 12 333 44'],
+    ['Solo Ratsima', 'solo.r@yahoo.fr', '032 65 444 55'],
+    ['Mireille Randria', 'mireille.r@gmail.com', '034 90 555 66'],
+    ['Paul Rakoton', 'paul.rk@gmail.com', '033 11 222 77'],
+  ];
+  let idCounter = 1;
+  names.forEach(([name, email, phone], i) => {
+    const id = idCounter++;
+    clients.push({
+      id, name, email, phone,
+      type: i < 5 ? 'ancien' : 'nouveau',
+      historicalPoints: i < 5 ? Math.floor(Math.random() * 200) + 20 : 0,
+      ptsAmount: 0, ptsFreq: 0, totalPoints: 0
+    });
+  });
+  // Seed purchases
+  const now = new Date();
+  const purchaseSeeds = [
+    { clientId: 1, amount: 150000, date: new Date(now.getFullYear(), now.getMonth(), 3) },
+    { clientId: 1, amount: 250000, date: new Date(now.getFullYear(), now.getMonth(), 10) },
+    { clientId: 2, amount: 80000,  date: new Date(now.getFullYear(), now.getMonth(), 5) },
+    { clientId: 3, amount: 500000, date: new Date(now.getFullYear(), now.getMonth(), 7) },
+    { clientId: 3, amount: 200000, date: new Date(now.getFullYear(), now.getMonth(), 15) },
+    { clientId: 3, amount: 150000, date: new Date(now.getFullYear(), now.getMonth(), 18) },
+    { clientId: 4, amount: 1200000,date: new Date(now.getFullYear(), now.getMonth(), 2) },
+    { clientId: 5, amount: 50000,  date: new Date(now.getFullYear(), now.getMonth(), 12) },
+    { clientId: 6, amount: 300000, date: new Date(now.getFullYear(), now.getMonth(), 8) },
+    { clientId: 7, amount: 75000,  date: new Date(now.getFullYear(), now.getMonth(), 14) },
+  ];
+  let pid = 1;
+  purchaseSeeds.forEach(ps => {
+    purchases.push({ id: pid++, ...ps, date: ps.date.toISOString().split('T')[0] });
+  });
+  clients.forEach(c => recalcClientPoints(c.id));
+}
+
+// ===================== UI HELPERS =====================
+function switchView(view) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`view-${view}`).classList.add('active');
+  const idx = { dashboard: 0, clients: 1, import: 2, bareme: 3, winners: 4, settings: 5 }[view];
+  document.querySelectorAll('.nav-tab')[idx].classList.add('active');
+  if (view === 'dashboard') renderDashboard();
+  if (view === 'clients')   renderClientsTable();
+  if (view === 'winners')   initWinnersView();
+  if (view === 'settings')  initSettingsView();
+  lucide.createIcons();
+}
+
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+  // Set today's date
+  const dateInput = document.getElementById('purchase-date');
+  if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+  lucide.createIcons();
+}
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); }));
+
+function showToast(msg, type = 'info') {
+  const container = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  const icons = { success: 'check-circle', error: 'x-circle', info: 'info' };
+  t.innerHTML = `<i data-lucide="${icons[type] || 'info'}"></i><span>${msg}</span>`;
+  container.appendChild(t);
+  lucide.createIcons({ nodes: [t] });
+  setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(16px)'; t.style.transition = '0.3s'; setTimeout(() => t.remove(), 300); }, 3000);
+}
+
+function fmtNum(n) { return Number(n).toLocaleString('fr-FR'); }
+function fmtDate(d) { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }); }
+
+// Mois courant en français, capitalisé
+function getCurrentMonthLabel() {
+  const now = new Date();
+  const month = now.toLocaleDateString('fr-FR', { month: 'long' });
+  const year  = now.getFullYear();
+  return { month: month.charAt(0).toUpperCase() + month.slice(1), year };
+}
+
+function updateDynamicLabels() {
+  const { month, year } = getCurrentMonthLabel();
+  // Titre tableau de bord (mode global)
+  const dashTitle = document.getElementById('dash-period-title');
+  if (dashTitle) dashTitle.textContent = `Tableau de bord`;
+    // Mettre à jour les années dans l'onglet import
+  const currYrEls = document.querySelectorAll('[id^="import-current-year"],[id^="import-year-badge"]');
+  currYrEls.forEach(el => { el.textContent = new Date().getFullYear(); });
+  // Bouton toggle "Vue mensuelle"
+  const btnLabel = document.getElementById('dash-month-btn-label');
+  if (btnLabel) btnLabel.textContent = `${month} ${year}`;
+  // Badge mois (visible en mode mensuel)
+  const badgeText = document.getElementById('dash-badge-text');
+  if (badgeText) badgeText.textContent = `${month} ${year}`;
+  // Titre import mensuel
+  const importLabel = document.getElementById('import-month-label');
+  if (importLabel) importLabel.textContent = 'Ventes du mois';
+  // Exemple de date dans le guide import
+  const dateEx = document.getElementById('import-date-example');
+  if (dateEx) {
+    const mm = String(new Date().getMonth() + 1).padStart(2, '0');
+    dateEx.textContent = `${year}-${mm}-12`;
+  }
+  lucide.createIcons();
+}
+
+// ===================== DASHBOARD =====================
+// ===================== DASHBOARD =====================
+let dashMode = 'global'; // 'global' | 'month'
+
+function setDashMode(mode) {
+  dashMode = mode;
+  document.getElementById('btn-dash-global').classList.toggle('active', mode === 'global');
+  document.getElementById('btn-dash-month').classList.toggle('active', mode === 'month');
+  const wrap = document.getElementById('year-selector-wrap');
+  if (wrap) wrap.style.display = mode === 'month' ? 'flex' : 'none';
+  renderDashboard();
+}
+
+function initYearSelector() {
+  const sel = document.getElementById('dash-year-select');
+  if (!sel) return;
+  const currentYear = new Date().getFullYear();
+  // Années disponibles : currentYear down to 2016
+  sel.innerHTML = '';
+  for (let y = currentYear; y >= 2016; y--) {
+    const opt = document.createElement('option');
+    opt.value = y;
+    opt.textContent = y === currentYear ? y + ' (campagne)' : y;
+    sel.appendChild(opt);
+  }
+}
+
+function renderDashboard() {
+  initYearSelector();
+  if (dashMode === 'month') renderDashboardMonthly();
+  else renderDashboardGlobal();
+  lucide.createIcons();
+}
+
+function renderDashboardGlobal() {
+  // Utilise les stats Drive (mobile) si la base complète n'est pas en mémoire
+  const total    = _driveStats ? _driveStats.total    : clients.length;
+  const anciens  = _driveStats ? _driveStats.anciens  : clients.filter(c => c.type === 'ancien').length;
+  const nouveaux = _driveStats ? _driveStats.nouveaux : total - anciens;
+  const totalPts = _driveStats ? _driveStats.totalPts : clients.reduce((s, c) => s + (c.totalPoints || 0), 0);
+  const pct      = total > 0 ? Math.round(anciens / total * 100) : 0;
+
+  if (total === 0) {
+    const supaConfigured = !!(SUPA_URL && SUPA_KEY);
+    document.getElementById('kpi-grid').innerHTML = '';
+    document.getElementById('tier-distribution').innerHTML = supaConfigured ? `
+      <div class="card" style="text-align:center;padding:var(--space-12);">
+        <div style="font-size:3rem;margin-bottom:var(--space-4);">⏳</div>
+        <div style="font-size:var(--text-xl);font-weight:800;margin-bottom:var(--space-2);">Chargement en cours…</div>
+        <div style="color:var(--color-text-muted);margin-bottom:var(--space-6);">
+          Connexion à Supabase et récupération des données
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:var(--space-3);">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--color-primary);animation:spin 1s linear infinite;"></div>
+          <span style="font-size:var(--text-sm);color:var(--color-text-muted);" id="load-cta-status">Connexion…</span>
+        </div>
+      </div>` : `
+      <div class="card" style="text-align:center;padding:var(--space-12);">
+        <div style="font-size:3rem;margin-bottom:var(--space-4);">📊</div>
+        <div style="font-size:var(--text-xl);font-weight:800;margin-bottom:var(--space-2);">Aucune donnée chargée</div>
+        <div style="color:var(--color-text-muted);margin-bottom:var(--space-6);">
+          Importez votre fichier XLSX ODOO ou configurez Supabase dans Paramètres.
+        </div>
+        <div class="flex-gap" style="justify-content:center;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="switchView('import')">
+            <i data-lucide="upload-cloud"></i> Importer un fichier ODOO
+          </button>
+          <button class="btn btn-secondary" onclick="switchView('settings')">
+            <i data-lucide="settings-2"></i> Configurer Supabase
+          </button>
+        </div>
+      </div>`;
+    document.getElementById('podium-title').innerHTML = '';
+    document.getElementById('podium-list').innerHTML = '';
+    document.getElementById('recent-title').innerHTML = '';
+    document.getElementById('recent-purchases').innerHTML = '';
+    lucide.createIcons();
+    return;
+  }
+
+  // Tier counts — depuis Drive stats si dispo, sinon calculé
+  const tierCounts = _driveStats && _driveStats.tiers
+    ? { ..._driveStats.tiers }
+    : { Platine: 0, Or: 0, Argent: 0, Bronze: 0 };
+  if (!_driveStats) {
+    clients.forEach(c => {
+      const t = getTier(c.totalPoints).name;
+      if (tierCounts[t] !== undefined) tierCounts[t]++;
+    });
+  }
+
+  // KPI grid
+  document.getElementById('kpi-grid').innerHTML = `
+    <div class="stat-card gold">
+      <div class="stat-label">Total clients</div>
+      <div class="stat-value">${fmtNum(total)}</div>
+      <div class="stat-sub">Inscrits au programme</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Anciens clients</div>
+      <div class="stat-value">${fmtNum(anciens)}</div>
+      <div class="stat-sub">${pct}% du total</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Nouveaux inscrits</div>
+      <div class="stat-value">${fmtNum(nouveaux)}</div>
+      <div class="stat-sub">Issus du programme actuel</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Points distribués</div>
+      <div class="stat-value">${fmtNum(totalPts)}</div>
+      <div class="stat-sub">Total cumulé tous temps</div>
+    </div>`;
+
+  // Répartition tiers
+  const tierDef = [
+    { name: 'Platine', emoji: '💎', color: 'var(--color-primary)' },
+    { name: 'Or',      emoji: '🥇', color: '#d4af37' },
+    { name: 'Argent',  emoji: '🥈', color: '#a8a9ad' },
+    { name: 'Bronze',  emoji: '🥉', color: '#cd7f32' },
+  ];
+  const tierDiv = document.getElementById('tier-distribution');
+  if (total === 0) {
+    tierDiv.innerHTML = '';
+  } else {
+    tierDiv.innerHTML = `<div class="card">
+      <div class="card-title"><i data-lucide="bar-chart-2"></i> Répartition par niveau de fidélité</div>
+      <div class="tier-grid">
+        ${tierDef.map(t => {
+          const n = tierCounts[t.name] || 0;
+          const pct2 = total > 0 ? Math.round(n / total * 100) : 0;
+          return `<div class="tier-stat">
+            <div class="t-emoji">${t.emoji}</div>
+            <div class="t-num" style="color:${t.color};">${fmtNum(n)}</div>
+            <div class="t-lbl">${t.name}</div>
+            <div class="t-lbl" style="margin-top:2px;opacity:.7;">${pct2}%</div>
+          </div>`;
+        }).join('')}
+        <div class="tier-stat">
+          <div class="t-emoji">🆕</div>
+          <div class="t-num" style="color:var(--color-text-muted);">${fmtNum(nouveaux)}</div>
+          <div class="t-lbl">Nouveau</div>
+          <div class="t-lbl" style="margin-top:2px;opacity:.7;">${total > 0 ? Math.round(nouveaux/total*100) : 0}%</div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // Podium — top all-time
+  document.getElementById('podium-title').innerHTML = `<i data-lucide="trophy"></i> Top 5 — Tous temps`;
+  renderPodium([...clients].sort((a, b) => b.totalPoints - a.totalPoints).slice(0, 5));
+
+  // Derniers achats
+  document.getElementById('recent-title').innerHTML = `<i data-lucide="clock"></i> Derniers achats enregistrés`;
+  renderRecentPurchases([...purchases].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 6));
+}
+
+function renderDashboardMonthly() {
+  const selYear = parseInt(document.getElementById('dash-year-select')?.value || new Date().getFullYear());
+  const year = selYear;
+  const month = year + '';  // label simplifié
+  // Clients actifs = ceux avec ptsAmount > 0 (achat en année campagne)
+  // OU on filtre par année dans purchases
+  const monthPurchases = purchases.filter(p => {
+    const d = new Date(p.date);
+    return d.getFullYear() === selYear;
+  });
+  // Si pas de purchases pour cette année, utiliser ptsAmount directement (import ODOO)
+  const useDirectPts = monthPurchases.length === 0;
+  let caMonth, clientsMonth, rachats, ptsMonth;
+  if (useDirectPts && selYear === new Date().getFullYear()) {
+    // Utilise les ptsAmount calculés à l'import ODOO (année campagne)
+    const activeClients = clients.filter(c => (c.ptsAmount || 0) > 0);
+    clientsMonth = activeClients.length;
+    caMonth      = 0; // CA non disponible sans montants exacts
+    rachats      = activeClients.filter(c => c.type === 'ancien').length;
+    ptsMonth     = activeClients.reduce((s, c) => s + (c.ptsAmount || 0), 0);
+  } else {
+    caMonth      = monthPurchases.reduce((s, p) => s + p.amount, 0);
+    clientsMonth = new Set(monthPurchases.map(p => p.clientId)).size;
+    rachats      = [...new Set(monthPurchases.map(p => p.clientId))]
+      .filter(id => { const c = clients.find(cl => cl.id === id); return c && c.type === 'ancien'; }).length;
+    ptsMonth     = monthPurchases.reduce((s, p) => s + getAmountPts(p.amount), 0);
+  }
+
+  document.getElementById('kpi-grid').innerHTML = `
+    <div class="stat-card gold">
+      <div class="stat-label">Clients actifs</div>
+      <div class="stat-value">${fmtNum(clientsMonth)}</div>
+      <div class="stat-sub">Avec achat en ${year}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">${caMonth > 0 ? 'CA ' + year + ' (Ar)' : 'Pts Montant ' + year}</div>
+      <div class="stat-value">${fmtNum(caMonth > 0 ? caMonth : ptsMonth)}</div>
+      <div class="stat-sub">${caMonth > 0 ? monthPurchases.length + ' transaction(s)' : 'Points campagne'}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Rachats</div>
+      <div class="stat-value">${fmtNum(rachats)}</div>
+      <div class="stat-sub">Anciens clients actifs en ${year}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Nouveaux</div>
+      <div class="stat-value">${fmtNum(clientsMonth - rachats)}</div>
+      <div class="stat-sub">Premier achat en ${year}</div>
+    </div>`;
+
+  // Pas de répartition tiers en mode mensuel
+  document.getElementById('tier-distribution').innerHTML = '';
+
+  // Podium du mois
+  const caByClient = monthPurchases.reduce((acc, p) => {
+    acc[p.clientId] = (acc[p.clientId] || 0) + p.amount; return acc;
+  }, {});
+  const topClients = Object.entries(caByClient)
+    .sort((a, b) => b[1] - a[1]).slice(0, 5)
+    .map(([id]) => clients.find(c => c.id === Number(id))).filter(Boolean);
+
+  document.getElementById('podium-title').innerHTML = `<i data-lucide="trophy"></i> Top 5 — ${year}`;
+  renderPodium(topClients);
+
+  document.getElementById('recent-title').innerHTML = `<i data-lucide="clock"></i> Achats enregistrés ${year}`;
+  renderRecentPurchases([...monthPurchases].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 6));
+}
+
+function renderPodium(sorted) {
+  const maxPts = sorted[0]?.totalPoints || 1;
+  const el = document.getElementById('podium-list');
+  if (!sorted.length) {
+    el.innerHTML = '<div class="empty-state" style="padding:var(--space-8)"><i data-lucide="users"></i><p>Aucun client pour cette période.</p></div>';
+    return;
+  }
+  el.innerHTML = sorted.map((c, i) => {
+    const tier = getTier(c.totalPoints);
+    const rankCls = ['r1','r2','r3'][i] || 'r-other';
+    return `<div class="podium-item">
+      <div class="podium-rank ${rankCls}">${i + 1}</div>
+      <div class="podium-info">
+        <div class="podium-name">${c.name}</div>
+        <div class="podium-detail">${tier.emoji} ${tier.name} · ${c.type === 'ancien' ? 'Ancien client' : 'Nouveau'}</div>
+        <div class="progress-bar mt-2"><div class="progress-fill" style="width:${Math.round((c.totalPoints/maxPts)*100)}%"></div></div>
+      </div>
+      <div class="podium-pts">${fmtNum(c.totalPoints)} pts</div>
+    </div>`;
+  }).join('');
+}
+
+function renderRecentPurchases(list) {
+  const el = document.getElementById('recent-purchases');
+  if (!list.length) {
+    el.innerHTML = '<div class="empty-state" style="padding:var(--space-8)"><i data-lucide="shopping-bag"></i><p>Aucun achat pour cette période.</p></div>';
+    return;
+  }
+  el.innerHTML = list.map(p => {
+    const c = clients.find(cl => cl.id === p.clientId);
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-2) 0;border-bottom:1px solid var(--color-divider);font-size:var(--text-sm);">
+      <div>
+        <div style="font-weight:600;">${c ? c.name : 'Inconnu'}</div>
+        <div style="font-size:var(--text-xs);color:var(--color-text-muted);">${fmtDate(p.date)}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-weight:600;">${fmtNum(p.amount)} Ar</div>
+        <div style="font-size:var(--text-xs);color:var(--color-primary);font-weight:700;">+${getAmountPts(p.amount)} pts</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ===================== CLIENTS TABLE =====================
+let clientsPage = 0;
+const CLIENTS_PER_PAGE = 100;
+
+function renderClientsTable(resetPage = false) {
+  if (resetPage) clientsPage = 0;
+  const search     = document.getElementById('client-search').value.toLowerCase();
+  const tierFilter = document.getElementById('client-filter-tier').value;
+  const typeFilter = document.getElementById('client-filter-type').value;
+
+  let filtered = clients.filter(c => {
+    const matchSearch = !search || c.name.toLowerCase().includes(search)
+      || (c.email && c.email.toLowerCase().includes(search))
+      || (c.phone && c.phone.includes(search));
+    const matchTier = !tierFilter || getTier(c.totalPoints).name === tierFilter;
+    const matchType = !typeFilter || c.type === typeFilter;
+    return matchSearch && matchTier && matchType;
+  });
+
+  const sorted  = [...filtered].sort((a, b) => b.totalPoints - a.totalPoints);
+  const total   = sorted.length;
+  const visible = sorted.slice(0, (clientsPage + 1) * CLIENTS_PER_PAGE);
+  const tbody   = document.getElementById('clients-tbody');
+
+  if (total === 0) {
+    tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><i data-lucide="search-x"></i><h3>Aucun client trouvé</h3><p>Essayez d'autres termes de recherche.</p></div></td></tr>`;
+    lucide.createIcons({ nodes: [tbody] });
+    // Clear pagination
+    const pag = document.getElementById('clients-pagination');
+    if (pag) pag.innerHTML = '';
+    return;
+  }
+
+  tbody.innerHTML = visible.map((c, i) => {
+    const tier    = getTier(c.totalPoints);
+    const rankCls = i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : '';
+    return `<tr id="row-${c.id}">
+      <td><span class="rank ${rankCls}">${i + 1}</span></td>
+      <td><strong>${c.name}</strong></td>
+      <td style="color:var(--color-text-muted)">${c.email || '—'}</td>
+      <td style="color:var(--color-text-muted)">${c.phone || '—'}</td>
+      <td><span class="badge ${c.type === 'ancien' ? 'badge-blue' : 'badge-green'}">${c.type === 'ancien' ? 'Ancien' : 'Nouveau'}</span></td>
+      <td><span class="tier-indicator ${tier.cls}">${tier.emoji} ${tier.name}</span></td>
+      <td class="font-mono" title="Campagne: ${fmtNum(c.ptsAmount)} + Historique: ${fmtNum(c.historicalPoints||0)}">${fmtNum((c.ptsAmount||0)+(c.historicalPoints||0))}</td>
+      <td class="font-mono" title="Campagne: ${fmtNum(c.ptsFreq)} + Fidélité années: ${fmtNum(c.historicalPtsFreq||0)}">${fmtNum((c.ptsFreq||0)+(c.historicalPtsFreq||0))}</td>
+      <td class="font-mono" style="font-weight:700;color:var(--color-primary)">${fmtNum(c.totalPoints)}</td>
+      <td>
+        <div class="flex-gap" style="gap:var(--space-1);">
+          <button class="btn btn-secondary btn-sm" onclick="openClientDetail(${c.id})" title="Voir"><i data-lucide="eye" style="width:14px;height:14px;"></i></button>
+          <button class="btn btn-primary btn-sm" onclick="quickAddPurchase(${c.id})" title="Achat"><i data-lucide="plus" style="width:14px;height:14px;"></i></button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+  lucide.createIcons({ nodes: [tbody] });
+
+  // Pagination footer
+  const pag = document.getElementById('clients-pagination');
+  if (pag) {
+    const shown     = visible.length;
+    const remaining = total - shown;
+    if (remaining > 0) {
+      pag.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-3) 0;font-size:var(--text-sm);color:var(--color-text-muted);">
+          <span>Affichage de <strong>${fmtNum(shown)}</strong> sur <strong>${fmtNum(total)}</strong> clients</span>
+          <button class="btn btn-secondary btn-sm" onclick="clientsPage++;renderClientsTable();">
+            <i data-lucide="chevron-down"></i> Voir ${fmtNum(Math.min(remaining, CLIENTS_PER_PAGE))} de plus
+          </button>
+        </div>`;
+    } else {
+      pag.innerHTML = `<div style="padding:var(--space-2) 0;font-size:var(--text-sm);color:var(--color-text-muted);text-align:center;">
+        ${fmtNum(total)} client(s) affiché(s) au total</div>`;
+    }
+    lucide.createIcons({ nodes: [pag] });
+  }
+}
+
+function openClientDetail(id) {
+  const client = clients.find(c => c.id === id);
+  if (!client) return;
+  const tier = getTier(client.totalPoints);
+  const clientPurchases = purchases.filter(p => p.clientId === id).sort((a, b) => new Date(b.date) - new Date(a.date));
+  const initials = client.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+
+  const content = document.getElementById('client-detail-content');
+  content.innerHTML = `
+    <div class="client-profile">
+      <div class="client-avatar">${initials}</div>
+      <div class="client-info">
+        <div class="client-name">${client.name}</div>
+        <div class="client-email">${client.email || 'Email non renseigné'} · ${client.phone || 'Tél non renseigné'}</div>
+        <div class="mt-2">
+          <span class="badge ${client.type === 'ancien' ? 'badge-blue' : 'badge-green'}">${client.type === 'ancien' ? 'Ancien client (2016+)' : 'Nouveau client'}</span>
+        </div>
+      </div>
+      <div class="client-points">
+        <div class="pts">${fmtNum(client.totalPoints)}</div>
+        <div class="pts-label">points total</div>
+      </div>
+    </div>
+    <div class="grid-3 mb-6" style="gap:var(--space-3);">
+      <div class="stat-card gold" style="padding:var(--space-4);">
+        <div class="stat-label">Pts Montant</div>
+        <div class="stat-value" style="font-size:var(--text-xl);">${fmtNum((client.ptsAmount||0)+(client.historicalPoints||0))}</div>
+        <div class="stat-sub">Campagne: ${fmtNum(client.ptsAmount||0)} + Hist: ${fmtNum(client.historicalPoints||0)}</div>
+      </div>
+      <div class="stat-card" style="padding:var(--space-4);">
+        <div class="stat-label">Pts Fréquence</div>
+        <div class="stat-value" style="font-size:var(--text-xl);">${fmtNum((client.ptsFreq||0)+(client.historicalPtsFreq||0))}</div>
+        <div class="stat-sub">Campagne: ${fmtNum(client.ptsFreq||0)} + Hist: ${fmtNum(client.historicalPtsFreq||0)}</div>
+      </div>
+    </div>
+    <div>
+      <div style="font-weight:700;font-size:var(--text-sm);margin-bottom:var(--space-3);">Historique des achats (${clientPurchases.length})</div>
+      ${clientPurchases.length === 0 ? '<p class="text-muted">Aucun achat enregistré.</p>' :
+        `<div class="table-wrap"><table class="data-table">
+          <thead><tr><th>Date</th><th>Montant (Ar)</th><th>Pts Montant</th></tr></thead>
+          <tbody>${clientPurchases.map(p => `<tr>
+            <td>${fmtDate(p.date)}</td>
+            <td class="font-mono">${fmtNum(p.amount)} Ar</td>
+            <td class="font-mono" style="color:var(--color-primary);font-weight:700;">+${getAmountPts(p.amount)}</td>
+          </tr>`).join('')}
+          </tbody>
+        </table></div>`
+      }
+    </div>
+    <div class="flex-gap" style="justify-content:flex-end;margin-top:var(--space-6);">
+      <button class="btn btn-primary" onclick="closeModal('clientDetailModal');quickAddPurchase(${id})">
+        <i data-lucide="plus"></i> Ajouter un achat
+      </button>
+    </div>
+  `;
+  openModal('clientDetailModal');
+}
+
+function quickAddPurchase(clientId) {
+  selectedClientId = clientId;
+  switchPurchaseType('existing');
+  const client = clients.find(c => c.id === clientId);
+  if (client) {
+    document.getElementById('existing-search').value = client.name;
+    document.getElementById('selected-client-preview').innerHTML = renderClientPreview(client);
+    document.getElementById('existing-results').innerHTML = '';
+  }
+  openModal('addPurchaseModal');
+}
+
+// ===================== PURCHASE MODAL =====================
+function switchPurchaseType(type) {
+  document.querySelectorAll('#purchase-type-tabs .pill-tab').forEach((t, i) => t.classList.toggle('active', (type === 'new' && i === 0) || (type === 'existing' && i === 1)));
+  document.getElementById('purchase-new-fields').style.display = type === 'new' ? '' : 'none';
+  document.getElementById('purchase-existing-fields').style.display = type === 'existing' ? '' : 'none';
+  if (type === 'new') selectedClientId = null;
+}
+
+function searchExistingClient() {
+  const q = document.getElementById('existing-search').value.toLowerCase();
+  const results = document.getElementById('existing-results');
+  if (!q) { results.innerHTML = ''; return; }
+  const matches = clients.filter(c => c.name.toLowerCase().includes(q) || (c.email && c.email.toLowerCase().includes(q)) || (c.phone && c.phone.includes(q))).slice(0, 6);
+  if (matches.length === 0) { results.innerHTML = '<div style="padding:var(--space-3);font-size:var(--text-sm);color:var(--color-text-muted);">Aucun client trouvé</div>'; return; }
+  results.innerHTML = matches.map(c => `<div onclick="selectClient(${c.id})" style="padding:var(--space-3) var(--space-4);cursor:pointer;border-bottom:1px solid var(--color-divider);font-size:var(--text-sm);" onmouseover="this.style.background='var(--color-surface-offset)'" onmouseout="this.style.background=''">
+    <strong>${c.name}</strong> <span style="color:var(--color-text-muted)">${c.email || c.phone || ''}</span> · <span style="color:var(--color-primary);font-weight:700">${fmtNum(c.totalPoints)} pts</span>
+  </div>`).join('');
+}
+
+function renderClientPreview(client) {
+  const tier = getTier(client.totalPoints);
+  return `<div class="client-profile" style="margin-bottom:0;">
+    <div class="client-avatar" style="width:36px;height:36px;font-size:var(--text-sm);">${client.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase()}</div>
+    <div><div class="client-name">${client.name}</div><div class="client-email">${client.email || client.phone || ''}</div></div>
+    <div class="client-points" style="margin-left:auto;"><div class="pts" style="font-size:var(--text-lg);">${fmtNum(client.totalPoints)}</div><div class="pts-label">pts actuels · ${tier.emoji} ${tier.name}</div></div>
+  </div>`;
+}
+
+function selectClient(id) {
+  selectedClientId = id;
+  const client = clients.find(c => c.id === id);
+  document.getElementById('existing-search').value = client.name;
+  document.getElementById('existing-results').innerHTML = '';
+  document.getElementById('selected-client-preview').innerHTML = renderClientPreview(client);
+  previewPurchasePoints();
+}
+
+function previewPurchasePoints() {
+  const amount = parseInt(document.getElementById('purchase-amount').value) || 0;
+  const preview = document.getElementById('purchase-points-preview');
+  const previewPts = document.getElementById('preview-pts');
+  const previewBreak = document.getElementById('preview-breakdown');
+  if (!amount) { preview.style.display = 'none'; return; }
+  const pts = getAmountPts(amount);
+  preview.style.display = '';
+  previewPts.textContent = `+${pts} pts`;
+  previewBreak.textContent = `Pour un achat de ${fmtNum(amount)} Ar`;
+}
+
+function submitPurchase() {
+  const amount = parseInt(document.getElementById('purchase-amount').value);
+  const date = document.getElementById('purchase-date').value || new Date().toISOString().split('T')[0];
+  if (!amount || amount <= 0) { showToast('Veuillez saisir un montant valide.', 'error'); return; }
+
+  let clientId = selectedClientId;
+  const isNew = document.querySelector('#purchase-type-tabs .pill-tab.active').textContent.trim() === 'Nouveau client';
+
+  if (isNew) {
+    const name = document.getElementById('new-name').value.trim();
+    if (!name) { showToast('Veuillez saisir le nom du client.', 'error'); return; }
+    const email = document.getElementById('new-email').value.trim();
+    const phone = document.getElementById('new-phone').value.trim();
+    // Check if already exists
+    const existing = clients.find(c => (email && c.email === email) || (phone && c.phone === phone));
+    if (existing) {
+      clientId = existing.id;
+      showToast(`Client existant trouvé : ${existing.name} — points cumulés.`, 'info');
+    } else {
+      const newId = clients.reduce((m, c) => Math.max(m, c.id||0), 0) + 1;
+      clients.push({ id: newId, name, email, phone, type: 'nouveau', historicalPoints: 0, ptsAmount: 0, ptsFreq: 0, totalPoints: 0 });
+      clientId = newId;
+    }
+  } else {
+    if (!clientId) { showToast('Veuillez sélectionner un client.', 'error'); return; }
+  }
+
+  const pid = Math.max(0, ...purchases.map(p => p.id)) + 1;
+  purchases.push({ id: pid, clientId, amount, date });
+  recalcClientPoints(clientId);
+  saveLocal();
+  renderDashboard();
+  renderClientsTable();
+
+  const pts = getAmountPts(amount);
+  showToast(`Achat enregistré : +${pts} pts pour ${clients.find(c=>c.id===clientId).name}`, 'success');
+  closeModal('addPurchaseModal');
+  // Reset
+  ['new-name','new-phone','new-email','purchase-amount','existing-search'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('selected-client-preview').innerHTML = '';
+  document.getElementById('purchase-points-preview').style.display = 'none';
+  selectedClientId = null;
+}
+
+function submitAddClient() {
+  const name = document.getElementById('ac-name').value.trim();
+  if (!name) { showToast('Veuillez saisir un nom.', 'error'); return; }
+  const email = document.getElementById('ac-email').value.trim();
+  const phone = document.getElementById('ac-phone').value.trim();
+  const pts = parseInt(document.getElementById('ac-points').value) || 0;
+  const type = document.getElementById('ac-type').value;
+  const newId = clients.reduce((m, c) => Math.max(m, c.id||0), 0) + 1;
+  clients.push({ id: newId, name, email, phone, type, historicalPoints: pts, ptsAmount: 0, ptsFreq: 0, totalPoints: pts });
+  showToast(`Client ${name} ajouté avec succès.`, 'success');
+  closeModal('addClientModal');
+  saveLocal();
+  renderClientsTable();
+  renderDashboard();
+  ['ac-name','ac-email','ac-phone'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('ac-points').value = '0';
+}
+
+// ===================== SIMULATOR =====================
+function simulatePoints() {
+  const amount = parseInt(document.getElementById('sim-amount').value) || 0;
+  const freq = parseInt(document.getElementById('sim-freq').value) || 1;
+  const existing = parseInt(document.getElementById('sim-existing').value) || 0;
+  const amtPts = getAmountPts(amount);
+  const freqPts = getFreqPts(freq);
+  const total = amtPts + freqPts + existing;
+  const tier = getTier(total);
+  document.getElementById('sim-total').textContent = `${fmtNum(total)} pts`;
+  document.getElementById('sim-breakdown').textContent = `${fmtNum(amtPts)} pts montant + ${fmtNum(freqPts)} pts fréquence + ${fmtNum(existing)} pts historiques`;
+  document.getElementById('sim-tier').innerHTML = `<span class="tier-indicator ${tier.cls}">${tier.emoji} Niveau ${tier.name}</span>`;
+}
+
+// ===================== PERSISTENCE — localStorage =====================
+function saveLocal() {
+  _compositeMax = null; // invalider le cache composite
+  try {
+    // Format minifié : ~1.9MB au lieu de ~6MB pour 39K clients → reste dans la limite 5MB
+    localStorage.setItem('massin_clients',   JSON.stringify(minifyClients(clients)));
+    localStorage.setItem('massin_purchases', JSON.stringify(purchases));
+    localStorage.setItem('massin_saved_at',  new Date().toISOString());
+  } catch(e) {
+    console.warn('localStorage quota dépassé même en format minifié :', e);
+    localStorage.setItem('massin_saved_at', new Date().toISOString());
+  }
+  updateSyncBadge();
+  autoSync();
+}
+
+// Auto-sync différé : attend 2s après la dernière modif avant d'envoyer
+let _autoSyncTimer = null;
+function autoSync() {
+  const url = localStorage.getItem('massin_gs_url');
+  if (!url) return;
+  // Base trop grande → pas d'auto-sync (utiliser le bouton manuel dans Paramètres)
+  if (clients.length > 5000) return;
+  clearTimeout(_autoSyncTimer);
+  _autoSyncTimer = setTimeout(() => syncToSupabase(true), 3000);
+}
+
+function loadLocal() {
+  try {
+    const c = localStorage.getItem('massin_clients');
+    const p = localStorage.getItem('massin_purchases');
+    if (c && p) {
+      const raw = JSON.parse(c);
+      // Supporte tous les formats : tableau (nouveau), objet minifié (ancien), objet complet (legacy)
+      if (raw.length > 0) {
+        if (Array.isArray(raw[0])) {
+          clients = expandClients(raw); // format tableau [name, type, h, hf, pa, pf, tp, email, phone, id]
+        } else if (raw[0].n !== undefined || raw[0].name !== undefined) {
+          clients = expandClients(raw); // format objet minifié {n, t, h...} ou complet
+        } else {
+          clients = raw; // fallback
+        }
+      } else {
+        clients = [];
+      }
+      purchases = JSON.parse(p);
+      return clients.length > 0;
+    }
+  } catch(e) { console.warn('localStorage read failed', e); }
+  return false;
+}
+
+function confirmClearLocal() {
+  if (!confirm('Effacer toutes les données locales ? Cette action est irréversible.')) return;
+  localStorage.removeItem('massin_clients');
+  localStorage.removeItem('massin_purchases');
+  localStorage.removeItem('massin_saved_at');
+  localStorage.removeItem('massin_gs_synced_at');
+  clients = []; purchases = []; _driveStats = null;
+  seedData();
+  renderDashboard();
+  renderClientsTable();
+  initSettingsView();
+  showToast('Données réinitialisées avec les données de démo.', 'info');
+}
+
+function initSettingsView() {
+  const lsClients   = document.getElementById('ls-clients');
+  const lsPurchases = document.getElementById('ls-purchases');
+  const lsLastSave  = document.getElementById('ls-last-save');
+  if (lsClients)   lsClients.textContent   = fmtNum(clients.length);
+  if (lsPurchases) lsPurchases.textContent = fmtNum(purchases.length);
+  const savedAt = localStorage.getItem('massin_saved_at');
+  if (lsLastSave) lsLastSave.textContent = savedAt
+    ? 'Derni\u00e8re sauvegarde locale : ' + new Date(savedAt).toLocaleString('fr-FR')
+    : 'Aucune sauvegarde locale.';
+  const supaLastSync = document.getElementById('supa-last-sync');
+  const syncedAt = localStorage.getItem('supa_synced_at');
+  if (supaLastSync) supaLastSync.textContent = syncedAt
+    ? 'Derni\u00e8re sync : ' + new Date(syncedAt).toLocaleString('fr-FR')
+    : 'Aucune synchronisation effectu\u00e9e.';
+  const statusEl = document.getElementById('supa-status');
+  if (statusEl) {
+    const urlOk  = !!SUPA_URL;
+    const keyOk  = !!SUPA_KEY;
+    const dataOk = clients.length > 0;
+    statusEl.innerHTML =
+      '<span style="color:' + (urlOk ? 'var(--color-success)' : 'var(--color-error)') + '">● URL : ' +
+        (urlOk ? SUPA_URL.replace('https://','').substring(0,35) + '\u2026' : 'NON CONFIGUR\u00c9E') + '</span><br>' +
+      '<span style="color:' + (keyOk ? 'var(--color-success)' : 'var(--color-error)') + '">● Cl\u00e9 : ' +
+        (keyOk ? SUPA_KEY.substring(0,22) + '\u2026' : 'NON CONFIGUR\u00c9E') + '</span><br>' +
+      '<span style="color:' + (dataOk ? 'var(--color-success)' : 'var(--color-warning)') + '">● Donn\u00e9es : ' +
+        (dataOk ? fmtNum(clients.length) + ' clients en m\u00e9moire \u2705' : '0 clients \u2014 importez un XLSX') + '</span>';
+  }
+  const schemaEl = document.getElementById('sql-schema-display');
+  if (schemaEl) schemaEl.textContent = SQL_SCHEMA;
+  const supaUrlEl = document.getElementById('supa-url-input');
+  const supaKeyEl = document.getElementById('supa-key-input');
+  if (supaUrlEl) supaUrlEl.value = SUPA_URL;
+  if (supaKeyEl) supaKeyEl.value = SUPA_KEY;
+  lucide.createIcons();
+}
+
+function setBadge(cls, icon, label) {
+  const badge = document.getElementById('sync-badge');
+  if (!badge) return;
+  badge.style.display = '';
+  badge.className = 'sync-badge ' + cls;
+  badge.innerHTML = '<i data-lucide="' + icon + '"></i><span id="sync-badge-text">' + label + '</span>';
+  lucide.createIcons({ nodes: [badge] });
+}
+function updateSyncBadge() {
+  const syncedAt = localStorage.getItem('supa_synced_at');
+  const savedAt  = localStorage.getItem('massin_saved_at');
+  const supaOk   = !!(localStorage.getItem('supa_url') && localStorage.getItem('supa_key'));
+  if (!supaOk) {
+    setBadge('warn', 'hard-drive', 'Local uniquement');
+  } else if (syncedAt && savedAt && syncedAt >= savedAt) {
+    const d = new Date(syncedAt);
+    setBadge('ok', 'cloud-check', 'Supabase ' + d.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}));
+  } else {
+    setBadge('warn', 'cloud-off', 'Supabase non sync');
+  }
+}
+
+
+// ===================== SYNC BANNER =====================
+function showSyncBanner(text, step) {
+  const b = document.getElementById('sync-loading-banner');
+  if (!b) return;
+  b.style.display = 'flex';
+  const t = document.getElementById('sync-banner-text');
+  const s = document.getElementById('sync-banner-step');
+  if (t) t.textContent = text || '';
+  if (s) s.textContent = step || '';
+  try { lucide.createIcons({ nodes: [b] }); } catch(e) {}
+}
+function hideSyncBanner() {
+  const b = document.getElementById('sync-loading-banner');
+  if (b) b.style.display = 'none';
+}
+function _releaseLock() {}   // compatîbilité bouton Annuler
+
+// ===================== SUPABASE SYNC =====================
+const SQL_SCHEMA = `-- Mass'In Fidélité — Schéma Supabase
+-- Exécutable plusieurs fois sans erreur (idempotent)
+
+CREATE TABLE IF NOT EXISTS clients (
+  id BIGINT PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT DEFAULT '',
+  phone TEXT DEFAULT '',
+  type TEXT DEFAULT 'nouveau',
+  historical_points INT DEFAULT 0,
+  historical_pts_freq INT DEFAULT 0,
+  pts_amount INT DEFAULT 0,
+  pts_freq INT DEFAULT 0,
+  total_points INT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS purchases (
+  id BIGINT PRIMARY KEY,
+  client_id BIGINT REFERENCES clients(id) ON DELETE CASCADE,
+  amount BIGINT NOT NULL,
+  date DATE NOT NULL
+);
+
+-- Sécurité : accès public en lecture/écriture (app monopage sans auth)
+ALTER TABLE clients  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE purchases ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public" ON clients;
+DROP POLICY IF EXISTS "Public" ON purchases;
+CREATE POLICY "Public" ON clients  FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Public" ON purchases FOR ALL USING (true) WITH CHECK (true);`;
+
+// Identifiants chargés depuis config.js (fichier séparé dans le repo)
+// Si config.js absent, utilise les valeurs vides → configure dans Paramètres
+if (typeof DEFAULT_SUPA_URL === 'undefined') window.DEFAULT_SUPA_URL = '';
+if (typeof DEFAULT_SUPA_KEY === 'undefined') window.DEFAULT_SUPA_KEY = '';
+
+let SUPA_URL = localStorage.getItem('supa_url') || DEFAULT_SUPA_URL || '';
+let SUPA_KEY = localStorage.getItem('supa_key') || DEFAULT_SUPA_KEY || '';
+
+// Wrapper API Supabase — REST direct, CORS natif, pas de cold start
+async function supaFetch(path, opts = {}) {
+  if (!SUPA_URL || !SUPA_KEY) throw new Error('Supabase non configuré');
+  const headers = {
+    'apikey': SUPA_KEY,
+    'Authorization': 'Bearer ' + SUPA_KEY,
+    'Content-Type': 'application/json',
+    ...(opts.headers || {})
+  };
+  const res = await fetch(SUPA_URL + '/rest/v1/' + path, { ...opts, headers });
+  if (!res.ok) {
+    const err = await res.text().then(t => t.trim() ? JSON.parse(t) : {}).catch(() => ({}));
+    throw new Error(err.message || err.hint || 'HTTP ' + res.status);
+  }
+  return res.status === 204 || res.headers.get('content-length') === '0'
+    ? null
+    : res.text().then(t => t.trim() ? JSON.parse(t) : null);
+}
+
+function clientToDB(c) {
+  const id = c.id || c[9] || null; // supporte format objet ET format tableau brut
+  if (!id) return null; // skip clients sans id valide
+  return { id, name: c.name || c[0] || '', email: (c.email || c[7]) || null,
+    phone: (c.phone || c[8]) || null, type: c.type || c[1] || 'nouveau',
+    historical_points: c.historicalPoints || c[2] || 0,
+    historical_pts_freq: c.historicalPtsFreq || c[3] || 0,
+    pts_amount: c.ptsAmount || c[4] || 0, pts_freq: c.ptsFreq || c[5] || 0,
+    total_points: c.totalPoints || c[6] || 0 };
+}
+function clientFromDB(r) {
+  return { id: r.id, name: r.name, email: r.email || '', phone: r.phone || '',
+    type: r.type, historicalPoints: r.historical_points || 0,
+    historicalPtsFreq: r.historical_pts_freq || 0,
+    ptsAmount: r.pts_amount || 0, ptsFreq: r.pts_freq || 0, totalPoints: r.total_points || 0 };
+}
+
+async function loadFromSupabase(silent = false) {
+  if (!SUPA_URL || !SUPA_KEY) {
+    if (!silent) showToast('Configurez Supabase dans Paramètres.', 'error'); return false;
+  }
+  if (!silent) showSyncBanner('Chargement depuis Supabase…', 'connexion');
+  setSyncBadgeLoading(true);
+  dbLog('info', 'loadFromSupabase démarré');
+  const updStatus = (msg) => { const el = document.getElementById('load-cta-status'); if (el) el.textContent = msg; };
+  try {
+    const PAGE = 1000;
+    let allClients = [], page = 0;
+    while (true) {
+      updStatus('Chargement clients… ' + fmtNum(allClients.length));
+      const rows = await supaFetch(
+        'clients?select=*&order=total_points.desc&offset=' + (page * PAGE) + '&limit=' + PAGE
+      );
+      allClients = allClients.concat(rows.map(clientFromDB));
+      if (!silent) showSyncBanner('Chargement…', fmtNum(allClients.length) + ' clients');
+      if (rows.length < PAGE) break;
+      page++;
+    }
+    updStatus('Finalisation…');
+    const pRows = await supaFetch('purchases?select=*&order=date.desc&limit=50000');
+    clients   = allClients;
+    purchases = pRows.map(p => ({ id: p.id, clientId: p.client_id, amount: p.amount, date: p.date }));
+    _driveStats = null;
+    dbLog('ok', 'Chargé : ' + clients.length + ' clients, ' + purchases.length + ' achats');
+    saveLocal();
+    localStorage.setItem('supa_synced_at', new Date().toISOString());
+    renderDashboard(); initSettingsView(); updateSyncBadge();
+    if (!silent) showToast('✅ ' + fmtNum(clients.length) + ' clients chargés.', 'success');
+    return true;
+  } catch(e) {
+    dbLog('err', 'loadFromSupabase : ' + e.message);
+    // Afficher l'erreur précise dans la carte dashboard
+    const errCard = document.getElementById('tier-distribution');
+    const msg = e.message || 'Erreur inconnue';
+    const is404   = msg.includes('404') || msg.includes('relation') || msg.includes('does not exist') || msg.includes('PGRST');
+    const isAuth  = msg.includes('401') || msg.includes('403') || msg.includes('JWT') || msg.includes('apikey') || msg.includes('Invalid');
+    const isEmpty = msg.includes('0 clients') || (clients && clients.length === 0);
+    if (errCard) errCard.innerHTML = `
+      <div class="card" style="text-align:center;padding:var(--space-8);">
+        <div style="font-size:2rem;margin-bottom:var(--space-3);">${is404 ? '🗄️' : isAuth ? '🔑' : '❌'}</div>
+        <div style="font-size:var(--text-lg);font-weight:700;margin-bottom:var(--space-2);color:var(--color-error);">
+          ${is404 ? 'Table introuvable' : isAuth ? 'Identifiants invalides' : 'Erreur de connexion'}
+        </div>
+        <div style="background:var(--color-surface-offset);border-radius:var(--radius-md);padding:var(--space-3);margin:var(--space-3) auto;max-width:500px;font-family:monospace;font-size:0.78rem;text-align:left;color:var(--color-text-muted);">
+          ${msg.substring(0, 200)}
+        </div>
+        <div style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-6);">
+          ${is404 ? 'Exécutez le schéma SQL dans Supabase, puis sauvegardez depuis le PC.' : 
+            isAuth ? 'Vérifiez URL et clé dans config.js ou Paramètres.' :
+            'Vérifiez votre connexion internet et la configuration Supabase.'}
+        </div>
+        <div class="flex-gap" style="justify-content:center;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="switchView('settings');setTimeout(()=>testSupabase(),300)">
+            <i data-lucide="zap"></i> Tester la connexion
+          </button>
+          <button class="btn btn-secondary" onclick="loadFromSupabase(false)">
+            <i data-lucide="refresh-cw"></i> Réessayer
+          </button>
+        </div>
+      </div>`;
+    lucide.createIcons({ nodes: [errCard] });
+    dbLog('err', 'Détail erreur loadFromSupabase : ' + msg);
+    if (!silent) showToast('Erreur : ' + msg, 'error');
+    return false;
+  } finally { hideSyncBanner(); setSyncBadgeLoading(false); }
+}
+
+async function syncToSupabase(silent) {
+  if (silent === undefined) silent = false;
+  dbLog('info', 'syncToSupabase démarré — URL=' + (SUPA_URL?'OK':'VIDE') + ' KEY=' + (SUPA_KEY?'OK':'VIDE') + ' clients=' + clients.length);
+  
+  // Tout dans un try-catch global — aucune erreur ne peut échapper
+  try {
+    if (!SUPA_URL || !SUPA_KEY) {
+      showToast('❌ Allez dans Paramètres et enregistrez vos identifiants Supabase.', 'error');
+      switchView('settings');
+      return;
+    }
+    if (clients.length === 0) {
+      showToast('❌ 0 clients en mémoire. Importez le XLSX d’abord.', 'error');
+      return;
+    }
+    
+    dbLog('info', 'Préparation banniere...');
+    const bannerEl = document.getElementById('sync-loading-banner');
+    if (bannerEl) {
+      bannerEl.style.display = 'flex';
+      const bt = document.getElementById('sync-banner-text');
+      const bs = document.getElementById('sync-banner-step');
+      if (bt) bt.textContent = 'Sauvegarde vers Supabase…';
+      if (bs) bs.textContent = fmtNum(clients.length) + ' clients';
+    }
+    dbLog('info', 'Bannière affichée, lancement des batchs...');
+    
+    // Diagnostic structure du premier client
+    const c0 = clients[0];
+    dbLog('info', 'client[0]: isArray=' + Array.isArray(c0) + 
+      ' id=' + (Array.isArray(c0) ? c0[9] : c0.id) +
+      ' name=' + (Array.isArray(c0) ? (c0[0]||'').substring(0,20) : (c0.name||'').substring(0,20)));
+
+    // Suppression préalable pour éviter les conflits de clé
+    dbLog('info', 'Suppression données Supabase...');
+    const delRes = await fetch(SUPA_URL + '/rest/v1/clients?id=gte.0', {
+      method: 'DELETE',
+      headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
+    });
+    dbLog(delRes.ok ? 'ok' : 'warn', 'DELETE: HTTP ' + delRes.status);
+
+    const BATCH = 500;
+    let sent = 0;
+    for (let i = 0; i < clients.length; i += BATCH) {
+      const raw = clients.slice(i, i + BATCH);
+      const batch = raw.map(c => {
+        const isArr = Array.isArray(c);
+        const id = isArr ? (c[9]||0) : (c.id||0);
+        if (!id || id <= 0) return null;
+        return {
+          id,
+          name:                isArr ? (c[0]||'') : (c.name||''),
+          email:               (isArr ? c[7] : c.email) || null,
+          phone:               (isArr ? c[8] : c.phone) || null,
+          type:                isArr ? (c[1]||'nouveau') : (c.type||'nouveau'),
+          historical_points:   isArr ? (c[2]||0) : (c.historicalPoints||0),
+          historical_pts_freq: isArr ? (c[3]||0) : (c.historicalPtsFreq||0),
+          pts_amount:          isArr ? (c[4]||0) : (c.ptsAmount||0),
+          pts_freq:            isArr ? (c[5]||0) : (c.ptsFreq||0),
+          total_points:        isArr ? (c[6]||0) : (c.totalPoints||0)
+        };
+      }).filter(Boolean);
+
+      if (batch.length === 0) { dbLog('warn', 'Batch ' + (i/BATCH+1) + ' vide — skip'); continue; }
+      dbLog('info', 'Batch ' + (Math.floor(i/BATCH)+1) + '/' + Math.ceil(clients.length/BATCH) +
+        ' (' + batch.length + ' clients, id[0]=' + batch[0].id + ')');
+
+      const res = await fetch(SUPA_URL + '/rest/v1/clients', {
+        method: 'POST',
+        headers: {
+          'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY,
+          'Content-Type': 'application/json', 'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify(batch)
+      });
+      if (!res.ok) {
+        const errText = await res.text().catch(() => 'no body');
+        throw new Error('HTTP ' + res.status + ' — ' + errText.substring(0, 300));
+      }
+      sent += batch.length;
+      const bs2 = document.getElementById('sync-banner-step');
+      if (bs2) bs2.textContent = fmtNum(sent) + '/' + fmtNum(clients.length);
+    }
+    
+    if (purchases.length > 0) {
+      dbLog('info', 'Sauvegarde achats: ' + purchases.length);
+      for (let i = 0; i < purchases.length; i += BATCH) {
+        const batch = purchases.slice(i, i + BATCH).map(p =>
+          ({id: p.id, client_id: p.clientId, amount: p.amount, date: p.date}));
+        const res = await fetch(SUPA_URL + '/rest/v1/purchases', {
+          method: 'POST',
+          headers: {
+            'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY,
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates,return=minimal'
+          },
+          body: JSON.stringify(batch)
+        });
+        if (!res.ok) {
+          const errText = await res.text().catch(() => '');
+          throw new Error('Achats HTTP ' + res.status + ' — ' + errText.substring(0, 100));
+        }
+      }
+    }
+    
+    localStorage.setItem('supa_synced_at', new Date().toISOString());
+    dbLog('ok', 'Sync Supabase terminé — ' + clients.length + ' clients');
+    showToast('✅ ' + fmtNum(clients.length) + ' clients sauvegardés sur Supabase !', 'success');
+    try { initSettingsView(); } catch(e2) {}
+    try { updateSyncBadge(); } catch(e2) {}
+    
+  } catch(err) {
+    dbLog('err', 'ERREUR syncToSupabase: ' + err.message);
+    showToast('❌ Erreur Supabase: ' + err.message, 'error');
+  } finally {
+    const bannerEl2 = document.getElementById('sync-loading-banner');
+    if (bannerEl2) bannerEl2.style.display = 'none';
+  }
+}
+
+
+async function testSupabase() {
+  const url = document.getElementById('supa-url-input').value.trim();
+  const key = document.getElementById('supa-key-input').value.trim();
+  const el  = document.getElementById('supa-test-result');
+  if (!url || !key) { showToast('Renseignez URL et clé.', 'error'); return; }
+  el.innerHTML = '<div class="gs-status-row"><i data-lucide="loader"></i> Test en cours…</div>';
+  lucide.createIcons({ nodes: [el] });
+  const t0 = Date.now();
+  try {
+    const res = await fetch(url + '/rest/v1/clients?select=count&limit=1', {
+      headers: { 'apikey': key, 'Authorization': 'Bearer ' + key }
+    });
+    const ms  = Date.now() - t0;
+    if (!res.ok) throw new Error('HTTP ' + res.status + ' — vérifiez URL et clé');
+    const data = await res.json();
+    el.innerHTML = '<div class="gs-status-row" style="color:var(--color-success);">' +
+      '<i data-lucide="check-circle"></i><div><strong>Connexion réussie !</strong> ' + ms + 'ms</div></div>';
+    dbLog('ok', 'Supabase test OK en ' + ms + 'ms');
+  } catch(e) {
+    el.innerHTML = '<div class="gs-status-row" style="color:var(--color-error);">' +
+      '<i data-lucide="x-circle"></i><div><strong>Erreur :</strong> ' + e.message + '</div></div>';
+    dbLog('err', 'Supabase test : ' + e.message);
+  }
+  lucide.createIcons({ nodes: [el] });
+}
+
+function supaInputChanged() { }
+
+function saveSupaConfig() {
+  const url = document.getElementById('supa-url-input').value.trim();
+  const key = document.getElementById('supa-key-input').value.trim();
+  if (!url || !key) { showToast('Renseignez les deux champs.', 'error'); return; }
+  SUPA_URL = url; SUPA_KEY = key;
+  localStorage.setItem('supa_url', url);
+  localStorage.setItem('supa_key', key);
+  showToast('Configuration Supabase enregistrée.', 'success');
+  updateSyncBadge();
+}
+
+function setSyncBadgeLoading(on) {
+  if (on) setBadge('warn spin', 'loader', 'Sync…');
+  else updateSyncBadge();
+}
+
+function downloadConfigJs() {
+  if (!SUPA_URL || !SUPA_KEY) {
+    showToast('Enregistrez d\'abord vos identifiants Supabase.', 'error');
+    return;
+  }
+  const content = `// ============================================================
+// Mass'In Fidélité — Configuration Supabase
+// Uploadez ce fichier sur GitHub dans le même dossier que index.html
+// ============================================================
+
+const DEFAULT_SUPA_URL = '${SUPA_URL}';
+const DEFAULT_SUPA_KEY = '${SUPA_KEY}';
+`;
+  const blob = new Blob([content], { type: 'text/javascript' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'config.js';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+  showToast('config.js téléchargé — uploadez-le sur GitHub !', 'success');
+}
+
+function copySQLSchema() {
+  navigator.clipboard.writeText(SQL_SCHEMA)
+    .then(() => showToast('SQL copié !', 'success'))
+    .catch(() => { const ta = document.createElement('textarea'); ta.value = SQL_SCHEMA; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); showToast('SQL copié !', 'success'); });
+}
+
+// ===================== CSV IMPORT =====================
+// ===================== CSV IMPORT =====================
+function handleDragOver(e, zoneId) { e.preventDefault(); document.getElementById(zoneId).classList.add('dragover'); }
+function handleDragLeave(zoneId) { document.getElementById(zoneId).classList.remove('dragover'); }
+function handleDrop(e, type) {
+  e.preventDefault();
+  const zoneId = type === 'legacy' ? 'drop-zone-legacy' : 'drop-zone-monthly';
+  document.getElementById(zoneId).classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) processCSV(file, type);
+}
+function handleFileImport(input, type) { if (input.files[0]) processCSV(input.files[0], type); }
+
+// ── File import: CSV + XLSX ──────────────────────────────────────────────────
+function handleFileImport(input, type) {
+  if (input.files[0]) processFile(input.files[0], type);
+}
+function handleDrop(e, type) {
+  e.preventDefault();
+  const zoneId = type === 'legacy' ? 'drop-zone-legacy' : 'drop-zone-monthly';
+  document.getElementById(zoneId).classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) processFile(file, type);
+}
+
+function processFile(file, type) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  dbLog('info', `Import fichier : ${file.name} (${Math.round(file.size/1024)}KB)`);
+  const resultId = type === 'legacy' ? 'import-legacy-result' : 'import-monthly-result';
+  document.getElementById(resultId).innerHTML =
+    `<div class="alert alert-info"><i data-lucide="loader"></i><div>Lecture du fichier en cours…</div></div>`;
+  lucide.createIcons({ nodes: [document.getElementById(resultId)] });
+
+  const reader = new FileReader();
+  reader.onerror = () => {
+    showToast('Erreur de lecture du fichier.', 'error');
+    dbLog('err', 'FileReader error: ' + reader.error);
+  };
+  reader.onload = (e) => {
+    try {
+      let rows; // tableau de tableaux : rows[0] = headers, rows[1..] = données
+      if (ext === 'xlsx' || ext === 'xls' || ext === 'ods') {
+        // Parsing XLSX via SheetJS
+        if (typeof XLSX === 'undefined') {
+          showToast('Bibliothèque XLSX non chargée — vérifiez votre connexion internet.', 'error');
+          return;
+        }
+        const wb = XLSX.read(e.target.result, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        dbLog('info', `XLSX lu : ${rows.length} lignes, feuille "${wb.SheetNames[0]}"`);
+      } else {
+        // Parsing CSV / TXT
+        // Parser CSV RFC 4180 — gère les champs entre guillemets avec virgules dedans
+        // ex: "Agence Portuaire, Maritime et Fluvial (APMF)" est un seul champ
+        const text  = new TextDecoder('utf-8').decode(e.target.result)
+                        .replace(/^\uFEFF/, ''); // strip BOM
+        const lines = text.split(/\r?\n/).filter(l => l.trim());
+        const sep   = lines[0].includes(';') ? ';' : ',';
+        rows = lines.map(l => parseCSVLine(l, sep));
+        dbLog('info', `CSV lu : ${rows.length} lignes, séparateur "${sep}"`);
+        dbLog('info', `En-têtes bruts : ${rows[0].slice(0,8).join(' | ')}`);
+      }
+
+      if (rows.length < 2) { showToast('Fichier vide ou sans données.', 'error'); return; }
+
+      // Détection automatique du tableau croisé ODOO
+      const pivot = detectODOOPivot(rows);
+      if (pivot) {
+        dbLog('info', `Tableau croisé ODOO détecté — années: ${pivot.years.join(', ')}`);
+        rows = convertODOOPivot(rows, pivot);
+        dbLog('info', `Converti en ${rows.length - 1} lignes plates (1 ligne = 1 client × 1 année)`);
+      }
+
+      processRows(rows, type, resultId);
+    } catch(err) {
+      showToast('Erreur de parsing : ' + err.message, 'error');
+      dbLog('err', 'Parse error: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── Détection et conversion du tableau croisé ODOO ───────────────────────────
+// Structure : 3 lignes d'en-tête, puis clients × années en colonnes
+function detectODOOPivot(rows) {
+  // Chercher la ligne qui contient des années (2000-2030) dans les colonnes 1+
+  for (let r = 0; r <= Math.min(3, rows.length - 1); r++) {
+    const row   = rows[r];
+    const years = [], yearCols = [];
+    for (let c = 1; c < row.length; c++) {
+      const v = parseInt(String(row[c] ?? '').trim());
+      if (v >= 2000 && v <= 2030) { years.push(v); yearCols.push(c); }
+    }
+    if (years.length >= 3) return { yearRow: r, years, yearCols };
+  }
+  return null; // pas un pivot ODOO
+}
+
+function convertODOOPivot(rows, { yearRow, years, yearCols }) {
+  const dataStart = yearRow + 2;
+
+  // Détecter les colonnes EXTRA (pas de nom, pas d'année) : email, téléphone, catégorie, date…
+  const headerRow = rows[yearRow] || rows[0];
+  const extraCols = []; // {idx, header}
+  headerRow.forEach((h, idx) => {
+    if (idx === 0) return; // colonne nom
+    if (yearCols.includes(idx)) return; // colonne année
+    const hNorm = String(h ?? '').trim().toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, '');
+    if (hNorm) extraCols.push({ idx, header: hNorm });
+  });
+
+  // En-têtes synthétiques : colonnes fixes + colonnes extra détectées
+  const headers = ['nom', 'montant', 'annee', ...extraCols.map(c => c.header)];
+  const result  = [headers];
+  let   skipped = 0;
+
+  for (let r = dataStart; r < rows.length; r++) {
+    const row  = rows[r];
+    const name = String(row[0] ?? '').trim();
+    if (!name || /^total$/i.test(name)) { skipped++; continue; }
+
+    // Extraire les valeurs des colonnes extra pour cette ligne
+    const extraVals = extraCols.map(c => String(row[c.idx] ?? '').trim());
+
+    let hasData = false;
+    for (let i = 0; i < yearCols.length; i++) {
+      const raw    = row[yearCols[i]];
+      const amount = parseFloat(String(raw ?? '').replace(/[^0-9.]/g, '')) || 0;
+      if (amount > 0) {
+        result.push([name, amount, years[i], ...extraVals]);
+        hasData = true;
+      }
+    }
+    if (!hasData) skipped++;
+  }
+
+  const extraNames = extraCols.map(c => c.header).join(', ');
+  dbLog('info', `Pivot converti : ${result.length - 1} entrées, ${skipped} vides ignorées`
+    + (extraCols.length ? ` | Colonnes extra : ${extraNames}` : ''));
+  return result;
+}
+
+// Parser CSV RFC 4180 — gère les guillemets et virgules dans les champs
+function parseCSVLine(line, sep = ',') {
+  const result = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQ && line[i+1] === '"') { cur += '"'; i++; } // guillemet échappé ""
+      else inQ = !inQ;
+    } else if (ch === sep && !inQ) {
+      result.push(cur.trim());
+      cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+function processRows(rows, type, resultId) {
+  // Normaliser les en-têtes (minuscules, sans accents ni caractères spéciaux)
+  const rawHeaders = rows[0].map(h =>
+    String(h).trim().toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // enlève accents
+      .replace(/[^a-z0-9_]/g, '')
+  );
+  dbLog('info', `En-têtes normalisés (${rawHeaders.length}) : ${rawHeaders.slice(0,10).join(' | ')}`);
+  dbLog('info', `Exemple ligne 2 : ${rows[1] ? rows[1].slice(0,5).join(' | ') : 'vide'}`);
+  const getCol = (row, ...keys) => {
+    for (const k of keys) {
+      const idx = rawHeaders.findIndex(h => h.includes(k));
+      if (idx >= 0 && row[idx] !== undefined) return String(row[idx]).trim();
+    }
+    return '';
+  };
+
+  // Résumé des colonnes détectées — flexible, pas de colonne obligatoire sauf nom+montant
+  const colMap = {
+    nom:       rawHeaders.findIndex(h => h.includes('nom') || h.includes('name') || h.includes('client') || h.includes('raison')),
+    email:     rawHeaders.findIndex(h => h.includes('email') || h.includes('mail') || h.includes('courriel')),
+    telephone: rawHeaders.findIndex(h => h.includes('tel') || h.includes('phone') || h.includes('mobile') || h.includes('contact')),
+    montant:   rawHeaders.findIndex(h => h.includes('montant') || h.includes('amount') || h.includes('total') || h.includes('ca') || h.includes('chiffre')),
+    date:      rawHeaders.findIndex(h => h.includes('date') || h.includes('jour')),
+    annee:     rawHeaders.findIndex(h => h.includes('annee') || h.includes('year') || h.includes('an') || h.includes('periode')),
+    categorie: rawHeaders.findIndex(h => h.includes('categ') || h.includes('article') || h.includes('produit') || h.includes('famille') || h.includes('type')),
+    ville:     rawHeaders.findIndex(h => h.includes('ville') || h.includes('city') || h.includes('adresse') || h.includes('region')),
+  };
+  const detected = Object.entries(colMap).filter(([,idx]) => idx >= 0).map(([k]) => k);
+  const missing  = Object.entries(colMap).filter(([k,idx]) => idx < 0 && ['nom','montant'].includes(k)).map(([k]) => k);
+  dbLog('info', `Colonnes détectées (${detected.length}/${rawHeaders.length}) : ${detected.join(', ')}${missing.length ? ' | Manquantes : '+missing.join(', ') : ''}`);
+  if (colMap.date >= 0)      dbLog('ok',  'Dates exactes disponibles → granularité mensuelle activée');
+  if (colMap.telephone >= 0) dbLog('ok',  'Téléphone disponible → matching amélioré');
+  if (colMap.categorie >= 0) dbLog('ok',  'Catégorie disponible → analyse par produit possible');
+
+  let added = 0, updated = 0, skipped = 0;
+  const t0 = Date.now();
+
+  // Pour l'import historique (legacy) : réinitialiser la base pour éviter les doublons
+  // lors de re-imports répétés (sinon les clients s'accumulent : 39K → 79K → 118K…)
+  if (type === 'legacy') {
+    clients = []; purchases = [];
+    dbLog('info', 'Mode legacy — base réinitialisée avant import');
+  }
+
+  // Maps de lookup O(1) — construites UNE SEULE FOIS avant la boucle
+  // clients.find() dans la boucle = O(n) × 55K lignes = ~1 milliard d'ops → trop lent
+  const emailMap = new Map();
+  const phoneMap = new Map();
+  const nameMap  = new Map();
+  clients.forEach(c => {
+    if (c.email) emailMap.set(c.email.toLowerCase(), c);
+    if (c.phone) phoneMap.set(c.phone, c);
+    if (c.name)  nameMap.set(c.name.toLowerCase().trim(), c);
+  });
+  let nextClientId   = clients.reduce((m, c) => Math.max(m, c.id || 0), 0) + 1;
+  let nextPurchaseId = purchases.reduce((m, p) => Math.max(m, p.id || 0), 0) + 1;
+
+  for (let i = 1; i < rows.length; i++) {
+    const row      = rows[i];
+    const name     = getCol(row, 'nom', 'name', 'client', 'raison');
+    const email    = getCol(row, 'email', 'mail', 'courriel');
+    const phone    = getCol(row, 'telephone', 'phone', 'tel', 'mobile');
+    const amountRaw  = getCol(row, 'montant', 'amount', 'total', 'ca', 'chiffre');
+    const amount     = parseFloat(String(amountRaw).replace(/[^0-9.]/g,'')) || 0;
+    const yearStr    = getCol(row, 'annee', 'year', 'an', 'periode', 'exercice');
+    const dateStr    = getCol(row, 'date', 'jour');
+    const categorie  = getCol(row, 'categ', 'article', 'produit', 'famille');
+    const ville      = getCol(row, 'ville', 'city', 'adresse', 'region');
+
+    // Date : exacte si dispo, sinon 1er janvier de l'année, sinon aujourd'hui
+    let finalDate;
+    if (dateStr && String(dateStr).match(/\d{4}/)) finalDate = String(dateStr).split('T')[0];
+    else if (yearStr && String(yearStr).match(/^\d{4}$/)) finalDate = `${yearStr}-01-01`;
+    else finalDate = new Date().toISOString().split('T')[0];
+
+    if (!name && !email) { skipped++; continue; }
+
+    // Lookup O(1) via Map au lieu de clients.find() O(n)
+  let existing = null;
+  if (email) existing = emailMap.get(email.toLowerCase());
+  if (!existing && phone) existing = phoneMap.get(phone);
+  if (!existing && name)  existing = nameMap.get(name.toLowerCase().trim());
+
+    if (existing) {
+      // Enrichir les champs si nouvellement disponibles
+      if (email && !existing.email) { existing.email = email; emailMap.set(email.toLowerCase(), existing); }
+      if (phone && !existing.phone) { existing.phone = phone; phoneMap.set(phone, existing); }
+      if (ville && !existing.ville) existing.ville = ville;
+      if (amount > 0 && type === 'monthly') {
+        const pid = nextPurchaseId++;
+        purchases.push({ id: pid, clientId: existing.id, amount, date: finalDate });
+        // Pour mensuel on recalcule (peu de clients)
+        recalcClientPoints(existing.id);
+      } else if (amount > 0 && type === 'legacy') {
+        const yr = parseInt(String(getCol(row, 'annee', 'year', 'an') || '0'));
+        const currYr = new Date().getFullYear();
+        if (yr === currYr) {
+          existing.ptsAmount = (existing.ptsAmount || 0) + getAmountPts(amount);
+        } else {
+          existing.historicalPoints = (existing.historicalPoints || 0) + getAmountPts(amount);
+        }
+      }
+      updated++;
+    } else {
+      const newId   = nextClientId++;
+      const currYr  = new Date().getFullYear();
+      const rowYr   = parseInt(String(getCol(row, 'annee', 'year', 'an') || '0'));
+      const isCurrentYr = (type === 'legacy' && rowYr === currYr);
+      const histPts = (type === 'legacy' && !isCurrentYr) ? getAmountPts(amount) : 0;
+      const campPts = isCurrentYr ? getAmountPts(amount) : 0;
+      const newName = name || email;
+      const nc = { id: newId, name: newName, email, phone,
+        type: 'nouveau', // sera corrigé dans le batch final
+        historicalPoints: histPts, historicalPtsFreq: 0,
+        ptsAmount: campPts, ptsFreq: 0, totalPoints: histPts + campPts };
+      // Stocker les champs supplémentaires si disponibles
+      if (ville)     nc.ville     = ville;
+      if (categorie) nc.categorie = categorie;
+      clients.push(nc);
+      // Mise à jour des Maps pour détecter les doublons dans la même passe
+      if (nc.email) emailMap.set(nc.email.toLowerCase(), nc);
+      if (nc.phone) phoneMap.set(nc.phone, nc);
+      if (nc.name)  nameMap.set(nc.name.toLowerCase().trim(), nc);
+      if (type === 'monthly' && amount > 0) {
+        const pid = nextPurchaseId++;
+        purchases.push({ id: pid, clientId: newId, amount, date: finalDate });
+        recalcClientPoints(newId);
+      }
+      added++;
+    }
+  }
+
+  // Finalisation : séparation historique vs campagne en cours
+  if (type === 'legacy') {
+    const currentYear = new Date().getFullYear(); // ex: 2026
+
+    // Compter les années PRÉ-campagne et campagne par client
+    const yearCountHist = {}; // années avant currentYear
+    const yearCountCamp = {}; // années = currentYear
+    for (let i = 1; i < rows.length; i++) {
+      const n   = String(rows[i][0] || '').trim().toLowerCase();
+      const yr  = parseInt(String(rows[i][2] || rows[i][1] || '').trim());
+      if (!n) continue;
+      if (yr < currentYear) yearCountHist[n] = (yearCountHist[n] || 0) + 1;
+      if (yr === currentYear) yearCountCamp[n] = (yearCountCamp[n] || 0) + 1;
+    }
+
+    // Recalculer les points : séparer historique vs campagne
+    clients.forEach(c => {
+      const key = c.name.toLowerCase();
+      const hasHistory = (yearCountHist[key] || 0) > 0;
+      const hasCampaign = (yearCountCamp[key] || 0) > 0;
+
+      // Type : nouveau si seulement apparu en currentYear, ancien sinon
+      c.type = hasHistory ? 'ancien' : 'nouveau';
+
+      // Bonus fréquence basé sur les années HISTORIQUES uniquement
+      c.historicalPtsFreq = getFreqPts(yearCountHist[key] || 0);
+
+      // ptsAmount = points calculés sur la colonne currentYear (déjà calculés dans la boucle)
+      // => à recalculer à partir des données brutes
+      c.totalPoints = (c.historicalPoints || 0) + (c.historicalPtsFreq || 0) +
+                      (c.ptsAmount || 0) + (c.ptsFreq || 0);
+    });
+
+    const rachats  = clients.filter(c => c.type === 'ancien' && (c.ptsAmount || 0) > 0).length;
+    const nouveaux = clients.filter(c => c.type === 'nouveau' && (c.ptsAmount || 0) > 0).length;
+    const withFreq = clients.filter(c => (c.historicalPtsFreq || 0) > 0).length;
+    dbLog('ok', `Analyse ${currentYear}: ${rachats} rachats, ${nouveaux} nouveaux, ${withFreq} avec bonus fréquence`);
+  }
+
+  const elapsed = Date.now() - t0;
+  dbLog('ok', `Import terminé en ${elapsed}ms — +${added} ajoutés, ~${updated} mis à jour, ${skipped} ignorés`);
+  saveLocal();
+
+  const resultEl = document.getElementById(resultId);
+  if (resultEl) {
+    const colSummary = detected.map(k => ({
+      nom:'👤 Nom', email:'📧 Email', telephone:'📱 Téléphone', montant:'💰 Montant',
+      date:'📅 Date exacte', annee:'📅 Année', categorie:'🏷️ Catégorie', ville:'📍 Ville'
+    }[k] || k)).join(' · ');
+    resultEl.innerHTML = `
+      <div class="alert alert-success">
+        <i data-lucide="check-circle"></i>
+        <div><strong>Import terminé !</strong><br>
+        ✅ ${added} nouveau(x) client(s)<br>
+        🔄 ${updated} client(s) mis à jour<br>
+        ⏭️ ${skipped} ligne(s) ignorée(s)<br>
+        <span style="font-size:0.8em;opacity:0.8;">⏱ ${elapsed}ms · ${rows.length-1} lignes</span><br>
+        <span style="font-size:0.8em;color:var(--color-success);">Colonnes utilisées : ${colSummary}</span>
+        </div>
+      </div>`;
+    try { lucide.createIcons({ nodes: [resultEl] }); } catch(e) { /* lucide optional */ }
+  }
+  renderDashboard();
+  showToast(`Import réussi : ${added} ajoutés, ${updated} mis à jour.`, 'success');
+  // Auto-sync vers Supabase si configuré
+  if (SUPA_URL && SUPA_KEY) {
+    setTimeout(() => syncToSupabase(true), 1500);
+  }
+}
+
+// Alias pour compatibilité (anciens appels à processCSV)
+function processCSV(file, type) { processFile(file, type); }
+
+// ===================== EXPORT CSV =====================
+function exportCSV() {
+  const sorted = [...clients].sort((a, b) => b.totalPoints - a.totalPoints);
+  const header = ['Rang', 'Nom', 'Email', 'Téléphone', 'Type', 'Niveau', 'Pts Montant', 'Pts Fréquence', 'Pts Historiques', 'Total Points'];
+  const rows = sorted.map((c, i) => {
+    const tier = getTier(c.totalPoints);
+    return [i+1, c.name, c.email||'', c.phone||'', c.type==='ancien'?'Ancien':'Nouveau', tier.name, c.ptsAmount, c.ptsFreq, c.historicalPoints||0, c.totalPoints];
+  });
+  const csv = [header, ...rows].map(r => r.join(';')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `massin_points_${new Date().toISOString().split('T')[0]}.csv`; a.click();
+  showToast('Export CSV téléchargé.', 'success');
+}
+
+// ===================== THEME TOGGLE =====================
+(function(){
+  const t = document.querySelector('[data-theme-toggle]');
+  const r = document.documentElement;
+  let d = matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light';
+  r.setAttribute('data-theme', d);
+  if(t) t.addEventListener('click', () => {
+    d = d === 'dark' ? 'light' : 'dark';
+    r.setAttribute('data-theme', d);
+  });
+})();
+
+// ===================== DEBUG / DIAGNOSTIC =====================
+const _dbLog = [];
+let _dbVisible = false;
+
+function dbLog(level, msg, detail) {
+  const now = new Date();
+  const t = now.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit', second:'2-digit' })
+            + '.' + String(now.getMilliseconds()).padStart(3,'0');
+  _dbLog.push({ t, level, msg, detail: detail ? String(detail).substring(0,300) : null });
+  _dbRender();
+}
+
+function _dbRender() {
+  const el = document.getElementById('debug-log');
+  if (!el || !_dbVisible) return;
+  if (_dbLog.length === 0) { el.innerHTML = '<span style="color:var(--color-text-muted);">— Aucun log —</span>'; return; }
+  el.innerHTML = [..._dbLog].reverse().map(e => {
+    return `<div class="debug-entry ${e.level}">
+      <span class="dt">${e.t}</span>
+      <div><span class="msg">${e.msg}</span>${e.detail ? `<div class="sub">${e.detail}</div>` : ''}</div>
+    </div>`;
+  }).join('');
+}
+
+function toggleDebug() {
+  _dbVisible = !_dbVisible;
+  const body = document.getElementById('debug-body');
+  const lbl  = document.getElementById('debug-toggle-lbl');
+  if (body) body.style.display = _dbVisible ? 'block' : 'none';
+  if (lbl)  lbl.textContent    = _dbVisible ? '▲ Masquer' : '▼ Afficher';
+  if (_dbVisible) _dbRender();
+  lucide.createIcons();
+}
+
+function clearDebug() {
+  _dbLog.length = 0;
+  _dbRender();
+}
+
+function copyDebugLog() {
+  const text = '=== MASS\'IN DEBUG LOG v2.1 ===\n'
+    + `Date : ${new Date().toLocaleString('fr-FR')}\n`
+    + `Clients : ${clients.length} | Achats : ${purchases.length}\n`
+    + `GS URL : ${localStorage.getItem('massin_gs_url') || 'NON CONFIGURÉE'}\n`
+    + '---\n'
+    + _dbLog.map(e => `[${e.t}] [${e.level.toUpperCase()}] ${e.msg}${e.detail ? '\n  > ' + e.detail : ''}`).join('\n');
+  navigator.clipboard.writeText(text)
+    .then(() => showToast('Logs copiés — collez-les dans le chat !', 'success'))
+    .catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); ta.remove();
+      showToast('Logs copiés !', 'success');
+    });
+}
+
+async function runDiagnostic() {
+  clearDebug();
+  if (!_dbVisible) toggleDebug();
+  dbLog('info', '══ DIAGNOSTIC DÉMARRÉ ══');
+
+  // Environnement
+  dbLog('info', `Navigateur : ${navigator.userAgent.split(') ').pop().split(' ')[0]}`);
+  dbLog('info', `URL de l\'app : ${window.location.href}`);
+  dbLog('info', `Protocole : ${window.location.protocol}`);
+
+  // État des données
+  dbLog('info', `Clients en mémoire : ${clients.length}`);
+  dbLog('info', `Achats en mémoire  : ${purchases.length}`);
+
+  // localStorage
+  const gsUrl    = localStorage.getItem('supa_url');
+  const savedAt  = localStorage.getItem('massin_saved_at');
+  const syncedAt = localStorage.getItem('supa_synced_at');
+  let lsSize = 0;
+  try { for (const k in localStorage) { if (localStorage.hasOwnProperty(k)) lsSize += (localStorage[k]||'').length; } } catch(e) {}
+  dbLog('info', `localStorage utilisé : ~${Math.round(lsSize/1024)} KB`);
+  dbLog(gsUrl ? 'ok' : 'warn', `GS URL : ${gsUrl ? gsUrl.substring(0,70)+'...' : 'NON CONFIGURÉE'}`);
+  dbLog('info', `Dernière save locale : ${savedAt  ? new Date(savedAt).toLocaleString('fr-FR')  : 'jamais'}`);
+  dbLog('info', `Dernière sync Drive  : ${syncedAt ? new Date(syncedAt).toLocaleString('fr-FR') : 'jamais'}`);
+
+  if (!gsUrl) {
+    dbLog('warn', 'Pas d\'URL configurée — test réseau ignoré');
+    dbLog('info', '══ DIAGNOSTIC TERMINÉ ══');
+    return;
+  }
+
+  // Test GET
+  dbLog('info', 'Test GET (lecture Drive)…');
+  const t0 = Date.now();
+  try {
+    const res = await fetch(gsUrl, { mode: 'cors', redirect: 'follow' });
+    const ms  = Date.now() - t0;
+    dbLog(res.ok ? 'ok' : 'err', `Réponse HTTP ${res.status} en ${ms}ms`);
+    const text = await res.text();
+    dbLog('info', `Taille réponse : ${Math.round(text.length/1024)} KB`);
+    try {
+      const data = JSON.parse(text);
+      if (data.error) {
+        dbLog('err', `Erreur Apps Script : ${data.error}`);
+      } else {
+        dbLog('ok',   `JSON valide — clients: ${(data.clients||[]).length}, achats: ${(data.purchases||[]).length}`);
+        if (data.savedAt) dbLog('info', `Données sauvées le : ${new Date(data.savedAt).toLocaleString('fr-FR')}`);
+      }
+    } catch(je) {
+      dbLog('err', `JSON invalide : ${je.message}`, text.substring(0, 200));
+    }
+  } catch(fe) {
+    dbLog('err', `Fetch GET échoué : ${fe.message}`);
+  }
+
+  // Test POST (ping léger sans données)
+  dbLog('info', 'Test POST (ping Apps Script)…');
+  const t1 = Date.now();
+  try {
+    const res  = await fetch(gsUrl, {
+      method: 'POST', mode: 'cors', redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'ping' })
+    });
+    const ms   = Date.now() - t1;
+    const text = await res.text();
+    dbLog(res.ok ? 'ok' : 'err', `Réponse POST HTTP ${res.status} en ${ms}ms`);
+    try {
+      const data = JSON.parse(text);
+      // ping retourne "Action inconnue" — c'est normal, ça prouve que le POST fonctionne
+      dbLog('ok', `POST fonctionne (réponse: ${JSON.stringify(data).substring(0,80)})`);
+    } catch(je) {
+      dbLog('warn', `Réponse POST non-JSON : ${text.substring(0,100)}`);
+    }
+  } catch(fe) {
+    dbLog('err', `Fetch POST échoué : ${fe.message}`);
+  }
+
+  dbLog('info', '══ DIAGNOSTIC TERMINÉ ══');
+}
+
+// Wrapper fetch avec timeout via Promise.race — plus fiable sur mobile que AbortController
+async function dbFetch(label, url, options = {}, timeoutMs = 40000) {
+  const method   = options.method || 'GET';
+  const bodySize = options.body ? Math.round(options.body.length / 1024) : 0;
+  dbLog('info', `→ ${method} ${label}${bodySize ? ` — ${bodySize}KB` : ''} [max ${timeoutMs/1000}s]`);
+  const t0 = Date.now();
+
+  const fetchPromise   = fetch(url, options);
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error(`Timeout ${timeoutMs/1000}s — serveur trop lent ou réseau coupé`)), timeoutMs)
+  );
+
+  try {
+    const res = await Promise.race([fetchPromise, timeoutPromise]);
+    const ms  = Date.now() - t0;
+    dbLog(res.ok ? 'ok' : 'warn', `← HTTP ${res.status} en ${ms}ms`);
+    return res;
+  } catch(e) {
+    const ms = Date.now() - t0;
+    dbLog('err', `✗ ${label} après ${ms}ms — ${e.message}`);
+    throw e;
+  }
+}
+
+// ── Compression payload ──────────────────────────────────────────────────────
+// Réduit le JSON de ~5MB à ~1.5MB en supprimant les champs vides/nuls
+// Format tableau : ~40% plus compact que les objets
+// [name, type, h, hf, pa, pf, tp, email, phone, id]
+function minifyClients(arr) {
+  return arr.map(c => [
+    c.name             || '',
+    c.type             || 'nouveau',
+    c.historicalPoints || 0,
+    c.historicalPtsFreq|| 0,
+    c.ptsAmount        || 0,
+    c.ptsFreq          || 0,
+    c.totalPoints      || 0,
+    c.email            || '',
+    c.phone            || '',
+    c.id               || 0
+  ]);
+}
+function expandClients(arr) {
+  if (!Array.isArray(arr) || arr.length === 0) return [];
+  // Format tableau v3
+  if (Array.isArray(arr[0])) {
+    return arr.map(r => ({
+      name:              r[0] || '',
+      type:              r[1] || 'nouveau',
+      historicalPoints:  r[2] || 0,
+      historicalPtsFreq: r[3] || 0,
+      ptsAmount:         r[4] || 0,
+      ptsFreq:           r[5] || 0,
+      totalPoints:       r[6] || 0,
+      email:             r[7] || '',
+      phone:             r[8] || '',
+      id:                r[9] || 0,
+    }));
+  }
+  // Format objet v1/v2 (rétrocompatibilité)
+  return arr.map(c => ({
+    id:               c.id   || 0,
+    name:             c.n    || c.name  || '',
+    email:            c.e    || c.email || '',
+    phone:            c.ph   || c.phone || '',
+    type:             c.t    || c.type  || 'nouveau',
+    historicalPoints:    c.h    || c.historicalPoints    || 0,
+    historicalPtsFreq:   c.hf   || c.historicalPtsFreq   || 0,
+    ptsAmount:        c.pa   || c.ptsAmount  || 0,
+    ptsFreq:          c.pf   || c.ptsFreq    || 0,
+    totalPoints:      c.tp   || c.totalPoints || 0,
+  }));
+}
+
+// ===================== GAGNANTS =====================
+let _winMode = 'rank';
+
+function setWinMode(mode) {
+  _winMode = mode;
+  document.getElementById('mode-rank').classList.toggle('active', mode === 'rank');
+  document.getElementById('mode-lottery').classList.toggle('active', mode === 'lottery');
+  document.getElementById('mode-rank-desc').style.display    = mode === 'rank'    ? '' : 'none';
+  document.getElementById('mode-lottery-desc').style.display = mode === 'lottery' ? '' : 'none';
+  updateWinnersPreview();
+}
+
+document.addEventListener('change', e => {
+  if (e.target.id === 'w-sort-by') {
+    const show = e.target.value === 'composite';
+    document.getElementById('w-composite-weights').style.display = show ? '' : 'none';
+    updateWinnersPreview();
+  }
+});
+
+let _winnersDebounce = null;
+function debouncedWinnersPreview() {
+  clearTimeout(_winnersDebounce);
+  _winnersDebounce = setTimeout(updateWinnersPreview, 200);
+}
+
+function syncWeights(changed) {
+  // Keep total at 100% by adjusting others proportionally
+  const ids = ['amount','freq','history'];
+  const val = parseInt(document.getElementById(`w-w-${changed}`).value);
+  const others = ids.filter(k => k !== changed);
+  const remaining = 100 - val;
+  const cur = others.reduce((s, k) => s + parseInt(document.getElementById(`w-w-${k}`).value), 0);
+  if (cur > 0) {
+    others.forEach(k => {
+      const el = document.getElementById(`w-w-${k}`);
+      el.value = Math.round(parseInt(el.value) / cur * remaining);
+      document.getElementById(`w-v-${k}`).textContent = el.value + '%';
+    });
+  }
+  document.getElementById(`w-v-${changed}`).textContent = val + '%';
+  debouncedWinnersPreview();
+}
+
+// Cache des valeurs max pour le score composite — calculé une seule fois
+let _compositeMax = null;
+function getCompositeMax() {
+  if (_compositeMax) return _compositeMax;
+  // Utilise reduce au lieu de Math.max(...array) — évite le stack overflow sur 39K clients
+  _compositeMax = {
+    a: clients.reduce((m, x) => Math.max(m, x.ptsAmount || 0), 1),
+    f: clients.reduce((m, x) => Math.max(m, (x.ptsFreq || 0) + (x.historicalPtsFreq || 0)), 1),
+    h: clients.reduce((m, x) => Math.max(m, (x.historicalPoints || 0) + (x.historicalPtsFreq || 0)), 1)
+  };
+  return _compositeMax;
+}
+
+function getClientScore(c, sortBy) {
+  if (sortBy === 'total')   return c.totalPoints || 0;
+  if (sortBy === 'amount')  return c.ptsAmount || 0;
+  if (sortBy === 'freq')    return (c.ptsFreq || 0) + (c.historicalPtsFreq || 0);
+  if (sortBy === 'history') return (c.historicalPoints || 0) + (c.historicalPtsFreq || 0);
+  if (sortBy === 'composite') {
+    const wA = parseInt(document.getElementById('w-w-amount')?.value  || 40) / 100;
+    const wF = parseInt(document.getElementById('w-w-freq')?.value    || 30) / 100;
+    const wH = parseInt(document.getElementById('w-w-history')?.value || 30) / 100;
+    const { a: maxA, f: maxF, h: maxH } = getCompositeMax();
+    return Math.round(
+      wA * ((c.ptsAmount || 0) / maxA) * 1000 +
+      wF * (((c.ptsFreq || 0) + (c.historicalPtsFreq || 0)) / maxF) * 1000 +
+      wH * (((c.historicalPoints || 0) + (c.historicalPtsFreq || 0)) / maxH) * 1000
+    );
+  }
+  return 0;
+}
+
+function getEligibleClients() {
+  const typeFilter = document.getElementById('w-filter-type')?.value || '';
+  const minPts     = parseInt(document.getElementById('w-min-pts')?.value || 0);
+  const sortBy     = document.getElementById('w-sort-by')?.value || 'total';
+  const now        = new Date();
+
+  return clients.filter(c => {
+    if (minPts > 0 && (c.totalPoints || 0) < minPts) return false;
+    if (typeFilter === 'ancien')  return c.type === 'ancien';
+    if (typeFilter === 'nouveau') return c.type === 'nouveau';
+    if (typeFilter === 'rachat') {
+      const hasMonthPurchase = purchases.some(p => {
+        if (p.clientId !== c.id) return false;
+        const d = new Date(p.date);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      });
+      return c.type === 'ancien' && hasMonthPurchase;
+    }
+    return true;
+  }).map(c => {
+    // Objet allégé — ne copie que les champs utiles (évite spread de 39K gros objets)
+    const score = getClientScore(c, sortBy);
+    return {
+      id: c.id, name: c.name, type: c.type,
+      totalPoints:       c.totalPoints       || 0,
+      ptsAmount:         c.ptsAmount         || 0,
+      ptsFreq:           c.ptsFreq           || 0,
+      historicalPoints:  c.historicalPoints  || 0,
+      historicalPtsFreq: c.historicalPtsFreq || 0,
+      _score: score
+    };
+  }).sort((a, b) => b._score - a._score);
+}
+
+function updateWinnersPreview() {
+  const eligible = getEligibleClients();
+  const nb       = parseInt(document.getElementById('w-nb-winners')?.value || 1);
+  const preview  = document.getElementById('w-preview-stats');
+  const hint     = document.getElementById('w-launch-hint');
+  if (!preview) return;
+  const pct = clients.length > 0 ? Math.round(eligible.length / clients.length * 100) : 0;
+  preview.innerHTML = `
+    <div style="font-size:var(--text-sm);margin-bottom:var(--space-2);">
+      <strong style="font-size:1.3rem;color:var(--color-primary);">${fmtNum(eligible.length)}</strong>
+      <span style="color:var(--color-text-muted);"> clients éligibles sur ${fmtNum(clients.length)} (${pct}%)</span>
+    </div>
+    <div class="eligibles-bar"><div class="eligibles-fill" style="width:${pct}%"></div></div>
+    ${eligible.length > 0 ? `<div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-2);">
+      Meilleur score : <strong>${eligible[0].name}</strong> — ${fmtNum(eligible[0]._score)} pts
+    </div>` : ''}`;
+  if (hint) hint.textContent = eligible.length < nb
+    ? `⚠️ Seulement ${eligible.length} client(s) éligible(s)`
+    : `${_winMode === 'lottery' ? '🎰 Tirage pondéré parmi' : '🥇 Top'} ${Math.min(nb, eligible.length)} sur ${fmtNum(eligible.length)} éligibles`;
+}
+
+function initWinnersView() {
+  updateWinnersPreview();
+  lucide.createIcons();
+}
+
+async function launchWinners() {
+  const eligible = getEligibleClients();
+  const nb       = Math.min(parseInt(document.getElementById('w-nb-winners')?.value || 1), eligible.length);
+  const result   = document.getElementById('winners-result');
+  if (!result) return;
+  if (eligible.length === 0) { showToast('Aucun client éligible avec ces critères.', 'error'); return; }
+
+  let winners = [];
+  if (_winMode === 'rank') {
+    winners = eligible.slice(0, nb);
+    renderWinners(winners, false);
+  } else {
+    // Tirage pondéré avec animation
+    result.innerHTML = `<div class="grid-2" id="slot-grid"></div>`;
+    const grid = document.getElementById('slot-grid');
+    const slots = [];
+    for (let i = 0; i < nb; i++) {
+      const div = document.createElement('div');
+      div.className = 'winner-slot active';
+      div.innerHTML = `<div class="slot-name slot-scroll" id="slot-${i}">—</div>`;
+      grid.appendChild(div);
+      slots.push(div);
+    }
+    lucide.createIcons();
+    // Draw winners (weighted by score)
+    const pool = [...eligible];
+    const drawn = [];
+    for (let i = 0; i < nb; i++) {
+      const totalWeight = pool.reduce((s, c) => s + Math.max(c._score, 1), 0);
+      let rand = Math.random() * totalWeight;
+      let winner = pool[0];
+      for (const c of pool) { rand -= Math.max(c._score, 1); if (rand <= 0) { winner = c; break; } }
+      drawn.push(winner);
+      pool.splice(pool.indexOf(winner), 1);
+    }
+    // Animate each slot
+    for (let i = 0; i < nb; i++) {
+      await animateSlot(slots[i], document.getElementById(`slot-${i}`), eligible, drawn[i], i * 800 + 500);
+    }
+    winners = drawn;
+  }
+}
+
+function animateSlot(slotEl, nameEl, pool, finalWinner, delay) {
+  return new Promise(resolve => {
+    setTimeout(() => {
+      let ticks = 0;
+      const maxTicks = 25 + Math.floor(Math.random() * 20);
+      const iv = setInterval(() => {
+        const rand = pool[Math.floor(Math.random() * pool.length)];
+        nameEl.textContent = rand.name;
+        ticks++;
+        if (ticks >= maxTicks) {
+          clearInterval(iv);
+          nameEl.classList.remove('slot-scroll');
+          nameEl.textContent = finalWinner.name;
+          slotEl.classList.remove('active');
+          slotEl.innerHTML = `
+            <div>
+              <div style="font-size:2rem;margin-bottom:var(--space-2);">🏆</div>
+              <div class="slot-name" style="color:var(--color-primary);">${finalWinner.name}</div>
+              <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-1);">
+                ${fmtNum(finalWinner._score)} pts · ${getTier(finalWinner.totalPoints).emoji} ${getTier(finalWinner.totalPoints).name}
+              </div>
+            </div>`;
+          resolve();
+        }
+      }, 80);
+    }, delay);
+  });
+}
+
+function renderWinners(winners, animated) {
+  const result = document.getElementById('winners-result');
+  if (!result) return;
+  const medals = ['🥇','🥈','🥉'];
+  result.innerHTML = `
+    <div class="section-sub mb-4">Résultats du classement</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--space-4);">
+      ${winners.map((c, i) => `
+        <div class="winner-card">
+          <div class="w-rank">${medals[i] || `#${i+1}`}</div>
+          <div class="w-name">${c.name}</div>
+          <div class="w-pts">
+            ${fmtNum(c._score)} pts · ${getTier(c.totalPoints).emoji} ${getTier(c.totalPoints).name}<br>
+            <span style="opacity:0.7;font-size:0.8em;">Montant: ${fmtNum(c.ptsAmount||0)} · Fréq: ${fmtNum((c.ptsFreq||0)+(c.historicalPtsFreq||0))} · Hist: ${fmtNum((c.historicalPoints||0))}</span>
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
+// ===================== INIT =====================
+(function init() {
+  SUPA_URL = localStorage.getItem('supa_url') || DEFAULT_SUPA_URL || '';
+  SUPA_KEY = localStorage.getItem('supa_key') || DEFAULT_SUPA_KEY || '';
+  if (DEFAULT_SUPA_URL && !localStorage.getItem('supa_url')) localStorage.setItem('supa_url', DEFAULT_SUPA_URL);
+  if (DEFAULT_SUPA_KEY && !localStorage.getItem('supa_key')) localStorage.setItem('supa_key', DEFAULT_SUPA_KEY);
+
+  const hasLocal = loadLocal();
+  renderDashboard();
+  updateDynamicLabels();
+  updateSyncBadge();
+  lucide.createIcons();
+
+  // Auto-charge immédiat si Supabase configuré et pas de données locales
+  if (!hasLocal && SUPA_URL && SUPA_KEY) {
+    // Mettre à jour le statut dans la carte de chargement
+    const updateStatus = (msg) => {
+      const el = document.getElementById('load-cta-status');
+      if (el) el.textContent = msg;
+    };
+    updateStatus('Connexion à Supabase…');
+    loadFromSupabase(false).catch(() => {
+      updateStatus('Erreur de connexion — vérifiez Paramètres');
+    });
+  }
+})();
+</script>
+</body>
+</html>
