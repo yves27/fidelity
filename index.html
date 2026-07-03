@@ -1341,21 +1341,23 @@ function initYearSelector() {
     opt.textContent = y === currentYear ? y + ' (campagne)' : y;
     sel.appendChild(opt);
   }
-  onYearChange(); // sync month selector visibility
+  syncMonthSelector(); // met à jour la visibilité du sélecteur mois SANS re-render
 }
 
-function onYearChange() {
+// Sépare la mise à jour de l'UI du re-rendu — évite la boucle infinie
+// renderDashboard → initYearSelector → onYearChange → renderDashboard ∞
+function syncMonthSelector() {
   const selYear = parseInt(document.getElementById('dash-year-select')?.value || new Date().getFullYear());
   const monthSel = document.getElementById('dash-month-select');
   if (!monthSel) return;
   const currentYear = new Date().getFullYear();
-  // Afficher le sélecteur de mois seulement pour l'année courante (données mensuelles)
-  const hasMonthlyData = purchases.some(p => {
-    const d = new Date(p.date);
-    return d.getFullYear() === selYear && d.getMonth() > 0; // pas seulement janv
-  }) || clients.some(c => (c.ptsAmount || 0) > 0 && selYear === currentYear);
   monthSel.style.display = (selYear === currentYear) ? '' : 'none';
   if (selYear !== currentYear) monthSel.value = '0';
+}
+
+// Appelée UNIQUEMENT par l'utilisateur (onchange du select) — jamais par renderDashboard
+function onYearChange() {
+  syncMonthSelector();
   renderDashboard();
 }
 
