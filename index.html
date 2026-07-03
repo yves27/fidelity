@@ -1492,6 +1492,15 @@ function renderDashboardGlobal() {
 }
 
 function renderDashboardMonthly() {
+  try { _renderDashboardMonthlyInner(); }
+  catch(e) {
+    dbLog('err', 'renderDashboardMonthly CRASH: ' + e.message);
+    const kpi = document.getElementById('kpi-grid');
+    if (kpi) kpi.innerHTML = `<div class="stat-card" style="grid-column:1/-1;color:var(--color-error);">
+      ❌ Erreur dashboard : ${e.message}</div>`;
+  }
+}
+function _renderDashboardMonthlyInner() {
   const selYear = parseInt(document.getElementById('dash-year-select')?.value || new Date().getFullYear());
   const year = selYear;
   const month = year + '';  // label simplifié
@@ -2915,6 +2924,18 @@ async function runDiagnostic() {
   // État des données
   dbLog('info', `Clients en mémoire : ${clients.length}`);
   dbLog('info', `Achats en mémoire  : ${purchases.length}`);
+
+  // Stats ptsAmount — clé pour le dashboard Campagne
+  const withPts     = clients.filter(c => (c.ptsAmount || 0) > 0);
+  const withHist    = clients.filter(c => (c.historicalPoints || 0) > 0);
+  const anciens     = clients.filter(c => c.type === 'ancien');
+  const totalPts    = clients.reduce((s, c) => s + (c.totalPoints || 0), 0);
+  dbLog(withPts.length > 0 ? 'ok' : 'warn',
+    `ptsAmount > 0 : ${withPts.length} clients (campagne 2026)`);
+  dbLog(withHist.length > 0 ? 'ok' : 'warn',
+    `historicalPoints > 0 : ${withHist.length} clients`);
+  dbLog('info', `Anciens clients : ${anciens.length} | Nouveaux : ${clients.length - anciens.length}`);
+  dbLog('info', `Total pts cumulés : ${totalPts.toLocaleString('fr-FR')}`);
 
   // localStorage
   const gsUrl    = localStorage.getItem('supa_url');
