@@ -1564,18 +1564,15 @@ function _renderDashboardMonthlyInner() {
   // Podium du mois/campagne
   let topClients;
   if (useDirectPts && selYear === new Date().getFullYear()) {
-    // Pas d'achats datés → classer par ptsAmount global
-    topClients = clients.filter(c => (c.ptsAmount || 0) > 0)
-      .sort((a, b) => (b.ptsAmount||0) - (a.ptsAmount||0)).slice(0, 5);
+    topClients = clients.filter(c => (c.ptsAmount||0) > 0)
+      .sort((a, b) => (b.totalPoints||0) - (a.totalPoints||0)).slice(0, 5);
   } else {
-    // Achats datés → classer par montant acheté dans la période
-    const ptsByClient = {};
-    monthPurchases.forEach(p => {
-      ptsByClient[p.clientId] = (ptsByClient[p.clientId] || 0) + getAmountPts(p.amount);
-    });
-    topClients = Object.entries(ptsByClient)
-      .sort((a, b) => b[1] - a[1]).slice(0, 5)
-      .map(([id]) => clients.find(c => c.id === Number(id))).filter(Boolean);
+    // Clients actifs sur la période → classés par TOTAL CUMULÉ (fidélité réelle)
+    const activeIds = new Set(monthPurchases.map(p => p.clientId));
+    topClients = clients
+      .filter(c => activeIds.has(c.id))
+      .sort((a, b) => (b.totalPoints||0) - (a.totalPoints||0))
+      .slice(0, 5);
   }
 
   document.getElementById('podium-title').innerHTML = `<i data-lucide="trophy"></i> Top 5 — ${monthLabel}`;
@@ -1622,14 +1619,17 @@ function _renderDashboardMonthlyInner() {
             <div style="font-weight:600;">${c.name}</div>
             <div style="font-size:var(--text-xs);color:var(--color-text-muted);">${c.type === 'ancien' ? '🔄 Rachat' : '🆕 Nouveau client'}</div>
           </div>
-          <div style="color:var(--color-primary);font-weight:700;font-size:var(--text-xs);">+${fmtNum(pts)} pts</div>
+          <div style="text-align:right;">
+            <div style="color:var(--color-primary);font-weight:700;font-size:var(--text-xs);">+${fmtNum(pts)} pts juin</div>
+            <div style="font-size:0.7rem;color:var(--color-text-muted);">${fmtNum(c.totalPoints||0)} total</div>
+          </div>
         </div>`).join('');
     try { lucide.createIcons({ nodes: [recentEl] }); } catch(e) {}
   }
 }
 
 function renderPodium(sorted, useAmount = false) {
-  const maxVal = sorted[0] ? (useAmount ? (sorted[0].ptsAmount || 0) : sorted[0].totalPoints) : 1;
+  const maxVal = sorted[0] ? (sorted[0].totalPoints || 1) : 1;
   const el = document.getElementById('podium-list');
   if (!sorted.length) {
     el.innerHTML = '<div class="empty-state" style="padding:var(--space-8)"><i data-lucide="users"></i><p>Aucun client pour cette période.</p></div>';
@@ -1638,7 +1638,7 @@ function renderPodium(sorted, useAmount = false) {
   el.innerHTML = sorted.map((c, i) => {
     const tier = getTier(c.totalPoints);
     const rankCls = ['r1','r2','r3'][i] || 'r-other';
-    const pts = useAmount ? (c.ptsAmount || 0) : c.totalPoints;
+    const pts = c.totalPoints || 0;
     const pct = Math.round((pts / maxVal) * 100);
     return `<div class="podium-item">
       <div class="podium-rank ${rankCls}">${i + 1}</div>
