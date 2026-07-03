@@ -1501,12 +1501,6 @@ function renderDashboardMonthly() {
   }
 }
 function _renderDashboardMonthlyInner() {
-  // Debug visible — à retirer une fois le problème résolu
-  const withPtsDebug = clients.filter(c => (c.ptsAmount || 0) > 0).length;
-  const kpiEl = document.getElementById('kpi-grid');
-  if (kpiEl) kpiEl.innerHTML = `<div class="stat-card" style="grid-column:1/-1;font-size:var(--text-xs);font-family:monospace;color:var(--color-text-muted);">
-    🔍 DEBUG — clients: ${clients.length} | ptsAmount>0: ${withPtsDebug} | achats: ${purchases.length} | dashMode: ${dashMode}
-  </div>`;
   const selYear = parseInt(document.getElementById('dash-year-select')?.value || new Date().getFullYear());
   const year = selYear;
   const month = year + '';  // label simplifié
@@ -1521,8 +1515,10 @@ function _renderDashboardMonthlyInner() {
     if (d.getFullYear() !== selYear) return false;
     return selMonth === 0 || (d.getMonth() + 1) === selMonth;
   });
-  // Si pas de purchases → utiliser ptsAmount (données pivot ODOO sans lignes d'achat individuelles)
-  const useDirectPts = monthPurchases.length === 0;
+  // useDirectPts = true seulement si AUCUN achat 2026 en base
+  // (données chargées depuis Supabase sans imports mensuels)
+  const hasCampaignPurchases = purchases.some(p => new Date(p.date).getFullYear() === selYear);
+  const useDirectPts = !hasCampaignPurchases;
   let caMonth, clientsMonth, rachats, ptsMonth;
   if (useDirectPts && selYear === new Date().getFullYear()) {
     // Utilise les ptsAmount calculés à l'import ODOO (année campagne)
@@ -1532,7 +1528,8 @@ function _renderDashboardMonthlyInner() {
     rachats      = activeClients.filter(c => c.type === 'ancien').length;
     ptsMonth     = activeClients.reduce((s, c) => s + (c.ptsAmount || 0), 0);
   } else {
-    caMonth      = monthPurchases.reduce((s, p) => s + p.amount, 0);
+    // Achats datés disponibles → filtrage précis par mois
+    caMonth      = 0; // CA non disponible depuis pivot ODOO (montants déduits)
     clientsMonth = new Set(monthPurchases.map(p => p.clientId)).size;
     rachats      = [...new Set(monthPurchases.map(p => p.clientId))]
       .filter(id => { const c = clients.find(cl => cl.id === id); return c && c.type === 'ancien'; }).length;
@@ -1567,16 +1564,16 @@ function _renderDashboardMonthlyInner() {
   // Podium du mois/campagne
   let topClients;
   if (useDirectPts && selYear === new Date().getFullYear()) {
-    // Import ODOO pivot : pas d'achats individuels → classer par ptsAmount directement
-    topClients = clients
-      .filter(c => (c.ptsAmount || 0) > 0)
-      .sort((a, b) => (b.ptsAmount || 0) - (a.ptsAmount || 0))
-      .slice(0, 5);
+    // Pas d'achats datés → classer par ptsAmount global
+    topClients = clients.filter(c => (c.ptsAmount || 0) > 0)
+      .sort((a, b) => (b.ptsAmount||0) - (a.ptsAmount||0)).slice(0, 5);
   } else {
-    const caByClient = monthPurchases.reduce((acc, p) => {
-      acc[p.clientId] = (acc[p.clientId] || 0) + p.amount; return acc;
-    }, {});
-    topClients = Object.entries(caByClient)
+    // Achats datés → classer par montant acheté dans la période
+    const ptsByClient = {};
+    monthPurchases.forEach(p => {
+      ptsByClient[p.clientId] = (ptsByClient[p.clientId] || 0) + getAmountPts(p.amount);
+    });
+    topClients = Object.entries(ptsByClient)
       .sort((a, b) => b[1] - a[1]).slice(0, 5)
       .map(([id]) => clients.find(c => c.id === Number(id))).filter(Boolean);
   }
@@ -1590,11 +1587,9 @@ function _renderDashboardMonthlyInner() {
     `<i data-lucide="${useDirectPts && selYear === new Date().getFullYear() ? 'users' : 'clock'}"></i> ${useDirectPts && selYear === new Date().getFullYear() ? 'Clients actifs' : 'Achats'} — ${monthLabel}`;
 
   if (useDirectPts && selYear === new Date().getFullYear()) {
-    // ODOO pivot : pas d'achats individuels → lister les clients actifs (rachats en tête)
-    const activeList = clients
-      .filter(c => (c.ptsAmount || 0) > 0)
-      .sort((a, b) => (b.ptsAmount || 0) - (a.ptsAmount || 0))
-      .slice(0, 8);
+    // Fallback sans achats datés
+    const activeList = clients.filter(c => (c.ptsAmount||0) > 0)
+      .sort((a, b) => (b.ptsAmount||0) - (a.ptsAmount||0)).slice(0, 8);
     if (!recentEl) return;
     recentEl.innerHTML = activeList.length === 0
       ? '<div class="empty-state" style="padding:var(--space-8)"><i data-lucide="users"></i><p>Aucun client actif.</p></div>'
@@ -1607,7 +1602,29 @@ function _renderDashboardMonthlyInner() {
         </div>`).join('');
     try { lucide.createIcons({ nodes: [recentEl] }); } catch(e) {}
   } else {
-    renderRecentPurchases([...monthPurchases].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 6));
+    // Achats datés → liste par pts dans la période
+    const seen = new Set();
+    const activeListByMonth = monthPurchases
+      .sort((a, b) => getAmountPts(b.amount) - getAmountPts(a.amount))
+      .reduce((acc, p) => {
+        if (!seen.has(p.clientId)) {
+          seen.add(p.clientId);
+          const c = clients.find(cl => cl.id === p.clientId);
+          if (c) acc.push({ client: c, pts: getAmountPts(p.amount) });
+        }
+        return acc;
+      }, []).slice(0, 8);
+    if (!recentEl) return;
+    recentEl.innerHTML = activeListByMonth.length === 0
+      ? '<div class="empty-state" style="padding:var(--space-8)"><i data-lucide="users"></i><p>Aucun client pour ce mois.</p></div>'
+      : activeListByMonth.map(({ client: c, pts }) => `<div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-2) 0;border-bottom:1px solid var(--color-divider);font-size:var(--text-sm);">
+          <div>
+            <div style="font-weight:600;">${c.name}</div>
+            <div style="font-size:var(--text-xs);color:var(--color-text-muted);">${c.type === 'ancien' ? '🔄 Rachat' : '🆕 Nouveau client'}</div>
+          </div>
+          <div style="color:var(--color-primary);font-weight:700;font-size:var(--text-xs);">+${fmtNum(pts)} pts</div>
+        </div>`).join('');
+    try { lucide.createIcons({ nodes: [recentEl] }); } catch(e) {}
   }
 }
 
@@ -2726,7 +2743,10 @@ function processRows(rows, type, resultId) {
         const yr     = parseInt(String(getCol(row, 'annee', 'year', 'an') || '0'));
         const currYr = new Date().getFullYear();
         if (yr >= currYr) {
-          // Données de l'année campagne (mensuel ou annuel)
+          // Données campagne 2026 → créer un achat daté pour filtrage mensuel
+          // finalDate = "2026-06-01" pour juin, "2026-05-01" pour mai, etc.
+          const pid = nextPurchaseId++;
+          purchases.push({ id: pid, clientId: existing.id, amount, date: finalDate });
           existing.ptsAmount = (existing.ptsAmount || 0) + getAmountPts(amount);
         } else {
           existing.historicalPoints = (existing.historicalPoints || 0) + getAmountPts(amount);
@@ -2753,6 +2773,10 @@ function processRows(rows, type, resultId) {
       if (nc.email) emailMap.set(nc.email.toLowerCase(), nc);
       if (nc.phone) phoneMap.set(nc.phone, nc);
       if (nc.name)  nameMap.set(nc.name.toLowerCase().trim(), nc);
+      // Données campagne 2026 → créer un achat daté
+      if (isCurrentYr && campPts > 0) {
+        purchases.push({ id: nextPurchaseId++, clientId: newId, amount, date: finalDate });
+      }
       if (type === 'monthly' && amount > 0) {
         const pid = nextPurchaseId++;
         purchases.push({ id: pid, clientId: newId, amount, date: finalDate });
