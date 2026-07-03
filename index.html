@@ -1950,6 +1950,7 @@ function saveLocal() {
   _compositeMax = null; // invalider le cache composite
   try {
     // Format minifié : ~1.9MB au lieu de ~6MB pour 39K clients → reste dans la limite 5MB
+    dbLog('info', 'saveLocal: ' + clients.length + ' clients, ' + purchases.length + ' achats');
     localStorage.setItem('massin_clients',   JSON.stringify(minifyClients(clients)));
     localStorage.setItem('massin_purchases', JSON.stringify(purchases));
     localStorage.setItem('massin_saved_at',  new Date().toISOString());
@@ -2748,6 +2749,7 @@ function processRows(rows, type, resultId) {
           const pid = nextPurchaseId++;
           purchases.push({ id: pid, clientId: existing.id, amount, date: finalDate });
           existing.ptsAmount = (existing.ptsAmount || 0) + getAmountPts(amount);
+          if (purchases.length <= 3) dbLog('info', '→ Achat existing: id=' + pid + ' date=' + finalDate + ' clientId=' + existing.id);
         } else {
           existing.historicalPoints = (existing.historicalPoints || 0) + getAmountPts(amount);
         }
@@ -2786,6 +2788,7 @@ function processRows(rows, type, resultId) {
     }
   }
 
+  dbLog('info', '→ Après boucle: clients=' + clients.length + ' achats=' + purchases.length);
   // Finalisation : séparation historique vs campagne en cours
   if (type === 'legacy') {
     const currentYear = new Date().getFullYear(); // ex: 2026
