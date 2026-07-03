@@ -1547,23 +1547,55 @@ function renderDashboardMonthly() {
   // Pas de répartition tiers en mode mensuel
   document.getElementById('tier-distribution').innerHTML = '';
 
-  // Podium du mois
-  const caByClient = monthPurchases.reduce((acc, p) => {
-    acc[p.clientId] = (acc[p.clientId] || 0) + p.amount; return acc;
-  }, {});
-  const topClients = Object.entries(caByClient)
-    .sort((a, b) => b[1] - a[1]).slice(0, 5)
-    .map(([id]) => clients.find(c => c.id === Number(id))).filter(Boolean);
+  // Podium du mois/campagne
+  let topClients;
+  if (useDirectPts && selYear === new Date().getFullYear()) {
+    // Import ODOO pivot : pas d'achats individuels → classer par ptsAmount directement
+    topClients = clients
+      .filter(c => (c.ptsAmount || 0) > 0)
+      .sort((a, b) => (b.ptsAmount || 0) - (a.ptsAmount || 0))
+      .slice(0, 5);
+  } else {
+    const caByClient = monthPurchases.reduce((acc, p) => {
+      acc[p.clientId] = (acc[p.clientId] || 0) + p.amount; return acc;
+    }, {});
+    topClients = Object.entries(caByClient)
+      .sort((a, b) => b[1] - a[1]).slice(0, 5)
+      .map(([id]) => clients.find(c => c.id === Number(id))).filter(Boolean);
+  }
 
   document.getElementById('podium-title').innerHTML = `<i data-lucide="trophy"></i> Top 5 — ${monthLabel}`;
-  renderPodium(topClients);
+  renderPodium(topClients, useDirectPts && selYear === new Date().getFullYear());
 
-  document.getElementById('recent-title').innerHTML = `<i data-lucide="clock"></i> Achats — ${monthLabel}`;
-  renderRecentPurchases([...monthPurchases].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 6));
+  // Section "Achats récents" — adapté selon source des données
+  const recentEl = document.getElementById('recent-purchases');
+  document.getElementById('recent-title').innerHTML =
+    `<i data-lucide="${useDirectPts && selYear === new Date().getFullYear() ? 'users' : 'clock'}"></i> ${useDirectPts && selYear === new Date().getFullYear() ? 'Clients actifs' : 'Achats'} — ${monthLabel}`;
+
+  if (useDirectPts && selYear === new Date().getFullYear()) {
+    // ODOO pivot : pas d'achats individuels → lister les clients actifs (rachats en tête)
+    const activeList = clients
+      .filter(c => (c.ptsAmount || 0) > 0)
+      .sort((a, b) => (b.ptsAmount || 0) - (a.ptsAmount || 0))
+      .slice(0, 8);
+    if (!recentEl) return;
+    recentEl.innerHTML = activeList.length === 0
+      ? '<div class="empty-state" style="padding:var(--space-8)"><i data-lucide="users"></i><p>Aucun client actif.</p></div>'
+      : activeList.map(c => `<div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-2) 0;border-bottom:1px solid var(--color-divider);font-size:var(--text-sm);">
+          <div>
+            <div style="font-weight:600;">${c.name}</div>
+            <div style="font-size:var(--text-xs);color:var(--color-text-muted);">${c.type === 'ancien' ? '🔄 Rachat' : '🆕 Nouveau client'}</div>
+          </div>
+          <div style="color:var(--color-primary);font-weight:700;font-size:var(--text-xs);">+${fmtNum(c.ptsAmount || 0)} pts</div>
+        </div>`).join('');
+    try { lucide.createIcons({ nodes: [recentEl] }); } catch(e) {}
+  } else {
+    renderRecentPurchases([...monthPurchases].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 6));
+  }
 }
 
-function renderPodium(sorted) {
-  const maxPts = sorted[0]?.totalPoints || 1;
+function renderPodium(sorted, useAmount = false) {
+  const maxVal = sorted[0] ? (useAmount ? (sorted[0].ptsAmount || 0) : sorted[0].totalPoints) : 1;
   const el = document.getElementById('podium-list');
   if (!sorted.length) {
     el.innerHTML = '<div class="empty-state" style="padding:var(--space-8)"><i data-lucide="users"></i><p>Aucun client pour cette période.</p></div>';
@@ -1572,14 +1604,16 @@ function renderPodium(sorted) {
   el.innerHTML = sorted.map((c, i) => {
     const tier = getTier(c.totalPoints);
     const rankCls = ['r1','r2','r3'][i] || 'r-other';
+    const pts = useAmount ? (c.ptsAmount || 0) : c.totalPoints;
+    const pct = Math.round((pts / maxVal) * 100);
     return `<div class="podium-item">
       <div class="podium-rank ${rankCls}">${i + 1}</div>
       <div class="podium-info">
         <div class="podium-name">${c.name}</div>
-        <div class="podium-detail">${tier.emoji} ${tier.name} · ${c.type === 'ancien' ? 'Ancien client' : 'Nouveau'}</div>
-        <div class="progress-bar mt-2"><div class="progress-fill" style="width:${Math.round((c.totalPoints/maxPts)*100)}%"></div></div>
+        <div class="podium-detail">${tier.emoji} ${tier.name} · ${c.type === 'ancien' ? '🔄 Rachat' : '🆕 Nouveau'}</div>
+        <div class="progress-bar mt-2"><div class="progress-fill" style="width:${pct}%"></div></div>
       </div>
-      <div class="podium-pts">${fmtNum(c.totalPoints)} pts</div>
+      <div class="podium-pts">${fmtNum(pts)} pts</div>
     </div>`;
   }).join('');
 }
