@@ -1501,6 +1501,12 @@ function renderDashboardMonthly() {
   }
 }
 function _renderDashboardMonthlyInner() {
+  // Debug visible — à retirer une fois le problème résolu
+  const withPtsDebug = clients.filter(c => (c.ptsAmount || 0) > 0).length;
+  const kpiEl = document.getElementById('kpi-grid');
+  if (kpiEl) kpiEl.innerHTML = `<div class="stat-card" style="grid-column:1/-1;font-size:var(--text-xs);font-family:monospace;color:var(--color-text-muted);">
+    🔍 DEBUG — clients: ${clients.length} | ptsAmount>0: ${withPtsDebug} | achats: ${purchases.length} | dashMode: ${dashMode}
+  </div>`;
   const selYear = parseInt(document.getElementById('dash-year-select')?.value || new Date().getFullYear());
   const year = selYear;
   const month = year + '';  // label simplifié
